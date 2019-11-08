@@ -1,0 +1,9 @@
+Nepsac -> Normal Nepsac
+Nepsac_InitQ -> Adjusts Qx and Qy based on initial erros
+Nepsac_DynamicQ -> Adjusts Qx and Qy on every loop
+Nepsac_DeltaU -> Cost function changed, so R weights on delta_util instead
+of u_til
+
+Pasta outros:
+-Contém funções e programas não usados no momento
+- Contém o modelo dinâmico do robô hulk

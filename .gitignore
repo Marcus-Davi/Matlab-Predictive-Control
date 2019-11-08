@@ -1,0 +1,6 @@
+#Ingora estes formatos
+*.eps
+*.fig
+*.zip
+
+slprj/
