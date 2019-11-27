@@ -87,7 +87,7 @@ Decim = Ts_noise_xy/Ts;
 
 
 Mean = 0; % zero mean
-sd_xy = 0; % standard deviation
+sd_xy = 3; % standard deviation
 sd_t = 0.1; % standard deviation
 noise_xy = [0;0];
 noise_t = 0;
@@ -95,7 +95,7 @@ noise_t = 0;
 %% KALMAN FILTER PARAMETERS
 Q_kal = Ts^2*eye(3); %0.0005 GPS, 0.05 ODO
 Q_kal(3,3) = 0.001;
-Q_kal = 0.001*Q_kal;
+Q_kal = 0.01*Q_kal;
 R_kal = 1*[sd_xy^2 0 0;0 sd_xy^2 0;0 0 sd_t^2];
 Pk = zeros(3);
 

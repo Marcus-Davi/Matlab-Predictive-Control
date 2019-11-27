@@ -201,7 +201,7 @@ for k=1:iterations
     end
        
     else
-   yb = ykest; %ykest
+   yb = ykest; %ykes
     for j=1:N
         yb = robot_model(yb,ub,Ts) ;
         Yb = [Yb; yb];     
