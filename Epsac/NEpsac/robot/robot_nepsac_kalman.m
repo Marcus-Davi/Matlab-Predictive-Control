@@ -36,8 +36,8 @@ uncertainty.D = ROBOT.D/ROBOT_REAL.D;
 
 
 %% EPSAC PARAMETERS
-N = 5;
-Nu = 5;
+N = 12;
+Nu = 1;
 n_in = 2;
 n_out = 3;
 

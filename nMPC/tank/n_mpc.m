@@ -6,7 +6,7 @@ time = 0:Ts:Tsim;
 %% Parametros Controle
 n = 4;
 nu = n;
-Ql = 0*eye(nu);
+Ql = 0.1*eye(nu);
 
 Yb = zeros(n,1); %Xbase
 
@@ -45,7 +45,7 @@ for i=time
 %         ykest = tank(ykest,uk,Ts); % PARAELO
       ykest = tank(yk,uk,Ts); % SERIE-PARALELO
       
-        noise = 0.4*randn;
+        noise = 0.*randn;
         
          yk = tank_incerto(yk,uk+pert,Ts); % RODA A PLANTA
    
@@ -70,35 +70,35 @@ for i=time
          u = uk*ones(nu,1);
          w = ref*ones(n,1); 
    
-%    uk_newton = uk*ones(n,1);
-%    for iter=1:5
-%    
-% %    yb = yk; %SERIE PARALELO
+   uk_newton = uk*ones(n,1);
+   for iter=1:10
+   
+   yb = yk; %SERIE PARALELO
 % yb = ykest; %PARALELO
-%    x = zeros(n,1);
-%     for j=1:n
-%      yb = tank(yb,uk_newton(j),Ts) + e;   %incluir erro
-%      x(j) = yb;
-%     end
-%       
-% %    jac = (Ts/10)*ones(n,1);
-% jac = (Ts/10)*eye(n);
-%    residuals = (x-w);
-%    increment = -inv(jac'*jac)*jac'*residuals ;
-% %     increment = -1/jac*residuals;
-% 
-%     uk_newton = uk_newton + increment;
-%    
-%    end
+   x = zeros(n,1);
+    for j=1:n
+     yb = tank(yb,uk_newton(j),Ts) + e;   %incluir erro
+     x(j) = yb;
+    end
+      
+%    jac = (Ts/10)*ones(n,1);
+jac = (Ts/10)*eye(n);
+   residuals = (x-w);
+   increment = -inv(jac'*jac)*jac'*residuals ;
+%     increment = -1/jac*residuals;
+
+    uk_newton = uk_newton + increment;
+   
+   end
 
 
     nf = e*ones(n,1);
     
 %     X = fmincon(@(u) cost(ref,ykest,nf,u,uk,Ts,n,nu,C,Ql),u,[],[]); %PARALELO
-      X = fmincon(@(u) cost(ref,yk,nf,u,uk,Ts,n,nu,C,Ql),u,[],[]); %SERIE-PARALELO
+%       X = fmincon(@(u) cost(ref,yk,nf,u,uk,Ts,n,nu,C,Ql),u,[],[]); %SERIE-PARALELO
    
-     uk = X(1);
-%     uk = uk_newton(1);
+%      uk = X(1);
+    uk = uk_newton(1);
 %     uk = 0.1392
    YK = [YK yk];
    UK = [UK uk];

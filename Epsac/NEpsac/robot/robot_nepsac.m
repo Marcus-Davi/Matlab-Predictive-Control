@@ -3,10 +3,11 @@ clear;close all;clc
 Ts = 0.1;
 R = 10;
 v = 0.1;
-[Xr,Ur,Tsim] = path_oito(R,v,Ts);
+x0 = [0; -0.5; pi/2];
+[Xr,Ur,Tsim] = path_oito(R,v,Ts,x0);
 iterations = round((Tsim/Ts));
 
-x0 = [0; -0.5; pi/2];
+
 % x0 = [0 ; 0 ; 0];
 
 % plot(Xr(1,:),Xr(2,:));
