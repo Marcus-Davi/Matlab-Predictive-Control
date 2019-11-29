@@ -54,9 +54,7 @@ elseif flag == 3
         end
         
         [~,Fx] = GetFE(Cx,D,5*N);
-        Fx
-        Fx = [Fx(1,:); Fx(3,:); Fx(6,:); Fx(10,:); Fx(15,:)];
-        Fx
+        Fx = [Fx(1,:); Fx(3,:); Fx(6,:); Fx(10,:); Fx(15,:)]
         npx = zeros(length(Cx)-1,1);
         [~,zix] = filter(1,Cx,0);
         
@@ -71,7 +69,7 @@ elseif flag == 3
         end
         
         [~,Fy] = GetFE(Cy,D,5*N);
-        Fy = [Fy(1,:); Fy(3,:); Fy(6,:); Fy(10,:); Fy(15,:)];
+        Fy = [Fy(1,:); Fy(3,:); Fy(6,:); Fy(10,:); Fy(15,:)]
         npy = zeros(length(Cy)-1,1);
         [~,ziy] = filter(1,Cy,0);
         
@@ -85,7 +83,7 @@ elseif flag == 3
         end
         
         [~,Ftheta] = GetFE(Ctheta,D,5*N);
-        Ftheta = [Ftheta(1,:); Ftheta(3,:); Ftheta(6,:); Ftheta(10,:); Ftheta(15,:)];
+        Ftheta = [Ftheta(1,:); Ftheta(3,:); Ftheta(6,:); Ftheta(10,:); Ftheta(15,:)]
         nptheta = zeros(length(Ctheta)-1,1);
         [~,zitheta] = filter(1,Ctheta,0);
         
@@ -114,6 +112,7 @@ elseif flag == 3
     y = [u(1);u(2);tmed]; %% medi��o, entrada de par�metro
     
     %nada haver com o controlador. Pr�ximo passo � determinar resposta base
+
     
     x=modelo(u0_EPSAC,xo,0.1); % (CALCULADA)
     n = y - x;
@@ -215,9 +214,9 @@ elseif flag == 3
             Gnep(:,end) = [zeros(3*(Nu-1),1);awg(1:end-3*(Nu-1))];
         end
         % reference errors
-        xerro = [xr(k+1) xr(k+3) xr(k+6) xr(k+10) xr(k+15)];
-        yerro = [yr(k+1) yr(k+3) yr(k+6) yr(k+10) yr(k+15)];
-        thetaerro = [tr(k+1) tr(k+3) tr(k+6) tr(k+10) tr(k+15)];
+        xerro = [xr(k+1) xr(k+3) xr(k+6) xr(k+10) xr(k+15)]
+        yerro = [yr(k+1) yr(k+3) yr(k+6) yr(k+10) yr(k+15)]
+        thetaerro = [tr(k+1) tr(k+3) tr(k+6) tr(k+10) tr(k+15)]
 %         errx = (xb-xr(:,k:N+k-1))'; % n deveria ser k+1:N+k? checar
 %         erry = (yb-yr(:,k:N+k-1))';
 %         errt = (tb-tr(:,k:N+k-1))';
@@ -255,8 +254,9 @@ elseif flag == 3
 % %         original cost function
 %                 Hnep = 2*(Gnep'*Q*Gnep+R);
 %                 Fnep = 2*(Gnep'*Q*E+R*UbUr);
-        
+ 
         % analytical solution
+
         uo = -Hnep\Fnep;
         
         % quadprog solution

@@ -1,7 +1,7 @@
 % Computa G pelo modelo e suas condições iniciais de entrada e estados
 
 
-function G = get_G(IC,model,increment,n,nu,Ts)
+function G = get_G(IC,model,increment,e,n,nu,Ts)
 x0 = IC.x0;
 u0 = IC.u0;
 
@@ -24,8 +24,8 @@ DH = H;
     u_inc = zeros(nin,1);
     u_inc(i) = increment; %step na entrada i
     
-    h = model(h0,u0,Ts);  
-    dh = model(dh0,u0+u_inc,Ts);  
+    h = model(h0,u0,Ts) + e(:,j);  
+    dh = model(dh0,u0+u_inc,Ts) + e(:,j);  
     
     h0 = h;
     dh0 = dh;

@@ -1,4 +1,4 @@
-function [Ej,Fj] = findEjFj(C,D,k)
+function [Ej,Fj] = GetFE(C,D,k)
 
 % This function returns the values of Ej and Fj for all
 % the number of pre determined interations

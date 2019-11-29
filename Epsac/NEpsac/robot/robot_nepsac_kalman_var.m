@@ -1,46 +1,37 @@
-clear;close all;clc
 %% SIMULATION PARAMETERS
+clear;close all;clc
 Ts = 0.1;
 % R = 10;
 v = 0.1;
-x0 = [10; 10; 0];
-% [Xr,Ur,Tsim] = path_oito(2,v,Ts,x0);
-[Xr,Ur,Tsim] = path_reta(15,v,Ts,x0);
-% [Xr,Ur,Tsim] = path_S(1.2,v,Ts,x0);
+x0 = [0; 0; 0]; %-1.4516
+% entrada est | saida est ~ sensor
+% -0.3 | 2.8 ~ bussola
+% -1.74 | 0.54 ~ GPS
+
+% [Xr,Ur,Tsim] = path_oito(2,v,Ts,x0); 
+% [Xr,Ur,Tsim] = path_reta(15,v,Ts,x0); 
+[Xr,Ur,Tsim] = path_L(1,v,Ts,x0);
+
+%ir de 0,0 -> (-6.5,-6.5)
 iterations = round((Tsim/Ts));
 
 % x0 = [0 ; 0 ; 0];
 
-% plot(Xr(1,:),Xr(2,:));
+plot(Xr(1,:),Xr(2,:));
+hold on;
 % return %testing
-
-%0 -> PARAELO | 1-> SERIE_PARALELO , 0 -> PARALELO  <----- ESCOLHA AQUI ###
-SERIE_PARALELO = 1; 
-
-%% ROBOT PARAMETERS
-vmax = 0.4;vmin = 0;
-wmax = 0.6;wmin = -wmax;
-
-%Model Robot
-ROBOT.R = 0.08; %wheel radius
-ROBOT.D = 0.4; %Robot diameter
-
-%Real Robot
-ROBOT_REAL.R = 0.08;
-ROBOT_REAL.D = 0.4;
-
-uncertainty.R = ROBOT.R/ROBOT_REAL.R;
-uncertainty.D = ROBOT.D/ROBOT_REAL.D;
-
 
 
 %% EPSAC PARAMETERS
+vmax = 0.4;vmin = 0;
+wmax = 0.7;wmin = -wmax;
+
 N = 5;
 Nu = 1;
 n_in = 2;
 n_out = 3;
 
-Repsac = 0.001*eye(Nu*n_in); %Control
+Repsac = 0.01*eye(Nu*n_in); %Control
 
 Qt = 0.001;
 Q = diag([1 1 Qt]);
@@ -55,114 +46,111 @@ M_inv = M_inv+n_diag;
 M = inv(M_inv);
 
 %% LQR
-ur1 = 0.1;
-ur2 = 0.0;
-A = [0 ur2 0;-ur2 0 ur1;0 0 0];
-B = [1 0;0 0;0 1];
-C = eye(3);
-D = zeros(3,2);
-SYS = ss(A,B,C,D);
-Q = diag([1 100 0]);
-R = eye(2);
-[K_LQ,S,E] = lqr(SYS,Q,R);
+% ur1 = 0.1;
+% ur2 = 0.0;
+% A = [0 ur2 0;-ur2 0 ur1;0 0 0];
+% B = [1 0;0 0;0 1];
+% C = eye(3);
+% D = zeros(3,2);
+% SYS = ss(A,B,C,D);
+% Q = diag([1 100 0]);
+% R = eye(2);
+% [K_LQ,S,E] = lqr(SYS,Q,R);
 
-%% Simula
+%% Simulation Parameters
 YK = [];
 UK = [];
 EK = [];
 uk = Ur(:,1);
 YKALM = [];
+GPS = [];
 YKEST = [];
-YKNOISE = [];
-yk = [0 0 0]';
-ykest = yk;
+YKM = [];
+% yk = x0;
+yk = [0 -0.5 pi/2]';
 ykalman = yk;
 
-% uk = [0 0]';
-pert = [0 0];
-% Creates noise profile
+
+% NOISE PROFILE
+Ts_noise_xy = Ts;
+Noise_time = iterations/2;
+Decim = Ts_noise_xy/Ts;
+
+
 Mean = 0; % zero mean
-sd_xy = 3; % standard deviation
-sd_t = 0.01; % standard deviation
-noise_xy = Mean + sd_xy.*randn(2,iterations)/2;
-noise_t = Mean + sd_t.*randn(1,iterations)/2;
-noise = [noise_xy;noise_t];
-
-
-for i=1:iterations/2
-   noise(:,i) = [0 0 0]'; 
-end
-
+sd_xy = 0; % standard deviation
+sd_t = 0.1; % standard deviation
+noise_xy = [0;0];
+noise_t = 0;
 
 %% KALMAN FILTER PARAMETERS
-Q_kal = 0.0001*eye(3); %0.0002
-Q_kal(3,3)=0.00001;
-% Q_kal(3,3) = 0.0001; %bussola
-R_kal = [sd_xy^2 0 0;0 sd_xy^2 0;0 0 sd_t^2];
+Q_kal = Ts^2*eye(3); %0.0005 GPS, 0.05 ODO
+Q_kal(3,3) = 0.001;
+Q_kal = 0.001*Q_kal;
+R_kal = 1*[sd_xy^2 0 0;0 sd_xy^2 0;0 0 sd_t^2];
 Pk = zeros(3);
 
 %% Simulation
 
+% gps_i = 1;
+
 for k=1:iterations
-     
-    time_s = k*Ts;
-    
-    
-    if(SERIE_PARALELO)
-    ykest = robot_model(yk,uk,Ts); %MODELO
-    else
-    ykest = robot_model(ykest,uk,Ts); %MODELO    
-    end
-       
-    yk = robot_model_real(yk,uk,Ts,uncertainty); %PLANTA
-%     YK_Noiseless = [YK_Noiseless yk];
-    
-    if(time_s == 260)
-       yk = yk + [0 10 0]';  %chute
-    end
-    ykm = yk + noise(:,k); %yk measured
-%     ykm = yk;
-    
-    
-    [ykalman,~,Pk,err] = kalman_ext(Ts,@robot_model,@measurement_model,Q_kal,R_kal,ykalman,uk,Pk,ykm);
-    
+                
+      yk = robot_model(yk,uk,Ts); %real robot
+      
+        if(k==round(iterations/2))
+        yk = yk + [-0 0 0]';
+        end
+        
+      [ykalman,Pk] = kalman_ext_predict(Ts,@robot_model,Q_kal,ykalman,uk,Pk);
+      
+      
+      if(rem(k,Decim)==0 && k>Noise_time) % GPS DECIMATION   
+        noise_xy = Mean + sd_xy.*randn(2,1)/2;
+        GPS = [GPS; ykm(1) ykm(2)];
+      ykm = yk + [noise_xy;0];
+      [ykalman,~,Pk,~] = kalman_ext_update(Ts,@measurement_model,R_kal,ykalman,uk,Pk,ykm); 
+      else
+      ykm = yk + [noise_xy;noise_t];
+
+      end
+               
     ne_kalman = (ykm - ykalman);% +  noise(:,k) ;%n(t) = y(t) - x(t)
-    ne_raw = ykm-ykest;
     
     nfiltro = repmat(ne_kalman,1,N); %@FILTER OVERRIDE
     
-    
     %preditctions
     ub = [0.3 0]'; 
-%     ub = Ur(:,k);
     Yb = [];
-    
-    if(SERIE_PARALELO)
+
     yb = ykalman;
     for j=1:N
-     yb = robot_model(yb,ub,j*Ts); %+ nfiltro(:,j);
+     yb = robot_model(yb,ub,j*Ts);
      Yb = [Yb; yb];
     end
        
-    else
-   yb = ykest; %ykest
-    for j=1:N
-        yb = robot_model(yb,ub,j*Ts) ;
-        Yb = [Yb; yb];     
-    end
-        Yb = Yb + repmat(ne_raw,N,1);%repmat(ne,N,1);
-    end
+%     else
+%    yb = ykest; %ykest
+%     for j=1:N
+%         yb = robot_model(yb,ub,j*Ts) ;
+%         Yb = [Yb; yb];     
+%     end
+%         Yb = Yb + repmat(ne_raw,N,1);%repmat(ne,N,1);
+%     end
     
     %condições inicias
         IC.x0 = ykalman;
         IC.u0 = ub;
         %Toma G do modelo.
-      G = get_G(IC,@robot_model,du,N,Nu,Ts);
+        
+        
+      G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
 %     G = get_G_var(IC,@robot_model,du,N,Nu,Ts);
       
       %Pega referencias futuras
      
       [Wr,Uref] = getRef_var(Xr,Ur,k,N); 
+%         [Wr,Uref] = getRef(Xr,Ur,k,N); 
      
      %Calcula o erro da trajetória e base
      
@@ -172,12 +160,11 @@ for k=1:iterations
      %Erro de velocidades de referência e base
      EU = (Uref(1:2*Nu)-Ub);
             
-%    K0 = 2*(G'*Qepsac*G+M_inv'*Ql*M_inv);
-%    K1 = 2*(G'*Qepsac*E + Ql*EU); %incluir velocidade
-
-
-
-       
+     
+     % REVISAR AQUI !!
+%    K0 = 2*(G'*Qepsac*G+M_inv'*Repsac*M_inv);
+%    K1 = 2*(G'*Qepsac*E + Repsac*EU); %incluir velocidade
+   
       K0 = 2*(G'*Qepsac*G+Repsac);
       K1 = 2*(G'*Qepsac*E + Repsac*EU); %incluir velocidade
       
@@ -213,29 +200,36 @@ for k=1:iterations
     uk(1) = max(uk(1),vmin);
     uk(2) = min(uk(2),wmax);
     uk(2) = max(uk(2),wmin);
-    
-   
+      
     ek = Xr(:,k)-yk; %plotagem
     YK = [YK yk];
     UK = [UK uk];
     EK = [EK ek];
     YKALM = [YKALM ykalman];
-    YKEST= [YKEST ykest];
-    YKNOISE = [YKNOISE ykm];
+    YKM = [YKM ykm];
+    
+
+    
+    
+
 end
+
+
 
 
 %% PLOTS
 close all
-plot(YKNOISE(1,:),YKNOISE(2,:),'green*');hold on
-plot(Xr(1,:),Xr(2,:),'black--'); hold on
+figure;hold on;
+% plot(YKM(1,:),YKM(2,:),'blue*');hold on
+plot(GPS(:,1),GPS(:,2),'g*');
+plot(Xr(1,:),Xr(2,:),'black--');
 grid on;
 plot(YKALM(1,:),YKALM(2,:),'blue');
 plot(YK(1,:),YK(2,:),'red');
 
 % plot(YK_Noiseless(1,:),YK_Noiseless(2,:))
 title('Controle de Robô Ñ-Holonômico em trajetória')
-legend('Noise','Trajetória Referência','Kalman','Real Robot')
+legend('GPS','Trajetória Referência','Kalman','Real Robot')
 % plot(time,YK)
 time = 1:iterations;
 grid on;
@@ -246,7 +240,7 @@ grid on;
 
 figure
 plot(time*Ts,EK);
-legend('ex','ey','ez')
+legend('ex','ey','e_\theta')
 grid on;
 
 % figure
@@ -256,7 +250,7 @@ grid on;
 % plot(YK(1,:))
 % legend('Ref','Kalman','Real')
 
-
+    
 
 
 

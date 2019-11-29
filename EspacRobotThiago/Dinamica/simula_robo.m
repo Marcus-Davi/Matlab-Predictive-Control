@@ -14,7 +14,7 @@ delay_v = 0; delay_w = 0;
 
 % Horizontes de controle e predi��o
 N = 5;
-Nu = 1;
+Nu = 2;
 
 %%% Outros Ajustes
 Qr = 0.001;
@@ -107,13 +107,15 @@ for na = 1:(2*Nu-2);
 end;
 
 % other definitions
-du = 0.00001;
+% du = 0.00001;
+du = 1e-5;
 
 % limite de atualiza��o
 ro = 0.001;
 
 % run simulation
-sim('motorsPID2');
+% sim('motorsPID2');
+sim('motorsPID_MD'); %Marcus
 
 % prepare for plots
 
