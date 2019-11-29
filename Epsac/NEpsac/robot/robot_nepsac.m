@@ -1,7 +1,7 @@
 clear;close all;clc
 %% SIMULATION PARAMETERS
 Ts = 0.1;
-R = 10;
+R = 1;
 v = 0.1;
 x0 = [0; -0.5; pi/2];
 [Xr,Ur,Tsim] = path_oito(R,v,Ts,x0);
@@ -14,7 +14,7 @@ iterations = round((Tsim/Ts));
 % return %testing
 
 %0 -> PARAELO | 1-> SERIE_PARALELO , 0 -> PARALELO  <----- ESCOLHA AQUI ###
-SERIE_PARALELO = 0; 
+SERIE_PARALELO = 1; 
 
 %% ROBOT PARAMETERS
 vmax = 0.8;vmin = 0;
@@ -34,8 +34,8 @@ uncertainty.D = ROBOT.D/ROBOT_REAL.D;
 
 
 %% EPSAC PARAMETERS
-N = 3;
-Nu = 3;
+N = 5;
+Nu = 1;
 n_in = 2;
 n_out = 3;
 
@@ -114,7 +114,7 @@ ykalman = x0;
 pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
-sd_xy = 3; % standard deviation
+sd_xy = 0.05; % standard deviation
 sd_t = 0.001; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
@@ -124,14 +124,6 @@ noise = [noise_xy;noise_t];
 % for i=1:iterations/2
 %    noise(:,i) = [0 0 0]'; 
 % end
-
-
-%% KALMAN FILTER PARAMETERS
-Q_kal = 0.01*eye(3);
-% Q_kal(3,3)=0.0001;
-% Q_kal(3,3) = 0.0001; %bussola
-R_kal = [sd_xy^2 0 0;0 sd_xy^2 0;0 0 sd_t^2];
-Pk = zeros(3);
 
 %% Simulation
 
@@ -150,12 +142,11 @@ for k=1:iterations
 %     YK_Noiseless = [YK_Noiseless yk];
     
     if(time_s == 20)
-       yk = yk + [20 10 0]';  %chute
+       yk = yk + [0. 0.5 0]';  %chute
     end
     ykm = yk + noise(:,k); %yk measured
     
     
-%     [ykalman,~,Pk,err] = kalman_ext(Ts,@robot_model,@measurement_model,Q_kal,R_kal,ykalman,uk,Pk,ykm);
     
     ne = (ykm - ykest);% +  noise(:,k) ;%n(t) = y(t) - x(t)
 %     ne = err;
@@ -213,13 +204,14 @@ for k=1:iterations
       
       %Pega referencias futuras
      
-      [Wr,Uref] = getRef(Xr,Ur,k,Nu); 
+      [Wr,Uref] = getRef(Xr,Ur,k,N); 
      
      %Calcula o erro da trajetória e base
-     E = getErr(Wr,Yb,Nu);
+     E = getErr(Wr,Yb,N);
      Ub = repmat(ub,Nu,1);
+     
      %Erro de velocidades de referência e base
-     EU = (Uref-Ub);
+     EU = (Uref(1:2*Nu)-Ub);
             
 %    K0 = 2*(G'*Qepsac*G+M_inv'*Ql*M_inv);
 %    K1 = 2*(G'*Qepsac*E + Ql*EU); %incluir velocidade
@@ -295,6 +287,7 @@ grid on;
 
 
 %% Funções Auxiliares
+
 
 function e = getErr(W,Y,nu)
 e = W-Y;

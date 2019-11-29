@@ -34,7 +34,7 @@ uncertainty.D = ROBOT.D/ROBOT_REAL.D;
 
 %% EPSAC PARAMETERS
 N = 3;
-Nu = 3;
+Nu = 1;
 n_in = 2;
 n_out = 3;
 
@@ -51,36 +51,6 @@ n_ones = -1*ones(n_in*(Nu-1),1);
 n_diag = diag(n_ones,-n_in);
 M_inv = M_inv+n_diag;
 M = inv(M_inv);
-%% ESPAC FILTERS
-
-% % disturbance filtering x
-% alfax = 0.0;
-% Dx = [1 -1];
-% Cx = conv([1 -alfax],[1 -alfax]);
-% Dx = [Dx 0];
-% [Ex,Fx] = GetFE(Cx,Dx,N);
-% npx = zeros(length(Cx)-1,1);
-% [xx,zix] = filter(1,Cx,0);
-% 
-% % disturbance filtering y
-% alfay = alfax;
-% Dy = [1 -1];
-% Cy = conv([1 -alfay],[1 -alfay]);
-% Dy = [Dy 0];
-% [Ey,Fy] = GetFE(Cy,Dy,N);
-% npy = zeros(length(Cy)-1,1);
-% [xx,ziy] = filter(1,Cy,0);
-% 
-% % disturbance filtering theta
-% alfatheta = 0.0;
-% Dtheta = [1 -1];
-% Ctheta = conv([1 -alfatheta],[1 -alfatheta]);
-% Dtheta = [Dtheta 0];
-% [Etheta,Ftheta] = GetFE(Ctheta,Dtheta,N);
-% nptheta = zeros(length(Ctheta)-1,1);
-% [xx,zitheta] = filter(1,Ctheta,0);
-% 
-% % return
 
 %% LQR
 ur1 = 0.1;
