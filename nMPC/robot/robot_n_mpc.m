@@ -7,7 +7,7 @@ v = 0.1;
 [Xr,Ur,Tsim] = path_S(1,v,Ts,[0 0 0]');
 iterations = round((Tsim/Ts));
 
-x0 = [0; -0.5; pi/2];
+x0 = [0; -1.0; 0];
 yk = x0;
 % plot(Xr(1,:),Xr(2,:));
 % return %testing
@@ -33,7 +33,7 @@ uncertainty.D = ROBOT.D/ROBOT_REAL.D;
 
 
 %% EPSAC PARAMETERS
-N = 3;
+N = 5;
 Nu = 1;
 n_in = 2;
 n_out = 3;
@@ -97,16 +97,16 @@ for k=1:iterations
     
     ne = (ykm - ykest);% +  noise(:,k) ;%n(t) = y(t) - x(t)
     
-    [Wr,Uref] = getRef(Xr,Ur,k,Nu); 
+    [Wr,Uref] = getRef(Xr,Ur,k,N); 
     
     nf = repmat(ne,1,N);
 %     nf = ne;
-    u = repmat(uk,1,Nu);
+    u = repmat(uk,1,N);
     
-    X = fmincon(@(u) cost(Wr,yk,nf,u,uk,Ts,N,Nu,C,Ql),u,[],[],[],[],[],[],[],options); %SERIE-PARALELO
+  X = fmincon(@(u) cost(Wr,yk,nf,u,uk,Ts,N,Nu,C,Ql),u,[],[],[],[],[],[],[],options); %SERIE-PARALELO
     
 
-     uk = X(:,1); %Extrai apenas o atual
+     uk = uk + X(:,1); %Extrai apenas o atual
      
   
     
