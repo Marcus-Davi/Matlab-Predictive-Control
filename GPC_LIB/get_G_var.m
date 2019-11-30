@@ -1,4 +1,5 @@
-%Computa G variando a amostragem 
+% Computa G pelo modelo e suas condições iniciais de entrada e estados 
+% Amostra variável 
 function G = get_G_var(IC,model,increment,e,n,nu,Ts)
 x0 = IC.x0;
 uin = IC.u0;
@@ -21,7 +22,6 @@ u0 = repmat(uin,1,n);
 
      for j=1:n %predição
          
-    
     h = model(h0,u0(:,j),j*Ts) + e(:,j); 
     dh = model(dh0,u0_inc(:,j),j*Ts) + e(:,j);  
     
@@ -36,11 +36,13 @@ u0 = repmat(uin,1,n);
 %aqui h é o primeiro bloco de G
 delta = (DH-H)/increment;
 deltaH = delta;
+%% Avaliar necessidade das derivadas aqui
 % for i=2:n
 %     blk = get_block(delta,i,1,blksize) - get_block(delta,i-1,1,blksize);
 %     deltaH = set_block(deltaH,i,1,blksize,blk);
 % %    HH(i) = H(i)-H(i-1);  %derivada
 % end
+%%
 
 G = [];
 HB_old = [];

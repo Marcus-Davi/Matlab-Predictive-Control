@@ -8,7 +8,7 @@ time = 0:Ts:Tsim;
 
 %% Parametros Controle
 n = 3;
-nu = 3;
+nu = 1;
 Ql = 0.8*eye(nu);
 
 Uo = zeros(nu,1);
@@ -50,7 +50,7 @@ for i=time
      
      
     ne = (yk - xk);%n(t) = y(t) - x(t)
-    ni = ne*ones(n,1); %n(t+j) = n(t+j-1) 
+    ni = ne*ones(1,n); %n(t+j) = n(t+j-1) 
     
     Ub = uk*ones(n,1); %Ubase
     Ub(nu:n) = Ub(nu);
@@ -77,7 +77,7 @@ end
     IC.x0 = yk;
     IC.u0 = Ub(1);
     
-   G = get_G(IC,@tank,0.00001,n,nu,Ts);
+   G = get_G(IC,@tank,0.00001,ni,n,nu,Ts);
    
 
    K0 = inv(G'*G+M_inv'*Ql*M_inv);

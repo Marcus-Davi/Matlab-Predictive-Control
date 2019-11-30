@@ -214,9 +214,9 @@ elseif flag == 3
             Gnep(:,end) = [zeros(3*(Nu-1),1);awg(1:end-3*(Nu-1))];
         end
         % reference errors
-        xerro = [xr(k+1) xr(k+3) xr(k+6) xr(k+10) xr(k+15)]
-        yerro = [yr(k+1) yr(k+3) yr(k+6) yr(k+10) yr(k+15)]
-        thetaerro = [tr(k+1) tr(k+3) tr(k+6) tr(k+10) tr(k+15)]
+        xerro = [xr(k+1) xr(k+3) xr(k+6) xr(k+10) xr(k+15)];
+        yerro = [yr(k+1) yr(k+3) yr(k+6) yr(k+10) yr(k+15)];
+        thetaerro = [tr(k+1) tr(k+3) tr(k+6) tr(k+10) tr(k+15)];
 %         errx = (xb-xr(:,k:N+k-1))'; % n deveria ser k+1:N+k? checar
 %         erry = (yb-yr(:,k:N+k-1))';
 %         errt = (tb-tr(:,k:N+k-1))';

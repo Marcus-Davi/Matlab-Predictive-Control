@@ -2,17 +2,17 @@ clear;close all;clc
 %% SIMULATION PARAMETERS
 Ts = 0.1;
 % R = 1;
-v = 0.15;
+v = 0.1;
 x0 = [0; 0; 0];
-[Xr,Ur,iterations] = path_L(1.5,v,Ts,x0);
-real_iterations = iterations - 5^2;
+[Xr,Ur,iterations] = path_L(5,v,Ts,x0);
+
 % plot(Xr(1,:),Xr(2,:));
 % return %testing
 
 
 
 %% ROBOT PARAMETERS
-vmax = 0.8;vmin = -vmax;
+vmax = 0.8;vmin = -0;
 wmax = 0.8;wmin = -wmax;
 
 %Model Robot
@@ -35,9 +35,9 @@ n_in = 2;
 n_out = 3;
 
 
-Qx = 10;
-Qy = 10;
-Qt = .00;
+Qx = 1;
+Qy = 1;
+Qt = 0.01;
 Q = diag([Qx Qy Qt]);
 Qcell = repmat({Q},1,N);
 Qepsac = blkdiag(Qcell{:}); %Ref
@@ -53,58 +53,58 @@ n_diag = diag(n_ones,-n_in);
 M_inv = M_inv+n_diag;
 M = inv(M_inv);
 %% ESPAC FILTERS
-ordemFilter = 2;
-alfax = 0.99;
-alfay = alfax;
-alfatheta = alfax;
-        % disturbance filtering x
-        D = [1 -1 zeros(1,ordemFilter-1)];
-        
-        if (ordemFilter == 1)
-            
-            Cx = [1 -alfax];
-            
-        elseif (ordemFilter == 2)
-            Cx = conv([1 -alfax],[1 -conj(alfax)]);
-            
-        elseif (ordemFilter == 3)
-            Cx = conv([1 -alfaReal],conv([1 -alfax],[1 -conj(alfax)]));
-            
-        end
-        
-        [~,Fx] = GetFE(Cx,D,5*N);
-        Fx = [Fx(1,:); Fx(3,:); Fx(6,:); Fx(10,:); Fx(15,:)]
-        npx = zeros(length(Cx)-1,1);
-        [~,zix] = filter(1,Cx,0);
-        
-        % disturbance filtering y
-        
-        if (ordemFilter == 1);
-            Cy = [1 -alfay];
-        elseif (ordemFilter == 2);
-            Cy = conv([1 -alfay],[1 -conj(alfay)]);
-        elseif (ordemFilter == 3);
-            Cy = conv([1 -alfaReal],conv([1 -alfay],[1 -conj(alfay)]));
-        end
-        
-        [~,Fy] = GetFE(Cy,D,5*N);
-        Fy = [Fy(1,:); Fy(3,:); Fy(6,:); Fy(10,:); Fy(15,:)]
-        npy = zeros(length(Cy)-1,1);
-        [~,ziy] = filter(1,Cy,0);
-        
-        % disturbance filtering theta
-        if (ordemFilter == 1);
-            Ctheta = [1 -alfatheta];
-        elseif (ordemFilter == 2);
-            Ctheta = conv([1 -alfatheta],[1 -conj(alfatheta)]);
-        elseif (ordemFilter == 3);
-            Ctheta = conv([1 -alfaReal],conv([1 -alfatheta],[1 -conj(alfatheta)]));
-        end
-        
-        [~,Ftheta] = GetFE(Ctheta,D,5*N);
-        Ftheta = [Ftheta(1,:); Ftheta(3,:); Ftheta(6,:); Ftheta(10,:); Ftheta(15,:)]
-        nptheta = zeros(length(Ctheta)-1,1);
-        [~,zitheta] = filter(1,Ctheta,0);
+% ordemFilter = 2;
+% alfax = 0.999;
+% alfay = alfax;
+% alfatheta = alfax;
+%         % disturbance filtering x
+%         D = [1 -1 zeros(1,ordemFilter-1)];
+%         
+%         if (ordemFilter == 1)
+%             
+%             Cx = [1 -alfax];
+%             
+%         elseif (ordemFilter == 2)
+%             Cx = conv([1 -alfax],[1 -conj(alfax)]);
+%             
+%         elseif (ordemFilter == 3)
+%             Cx = conv([1 -alfaReal],conv([1 -alfax],[1 -conj(alfax)]));
+%             
+%         end
+%         
+%         [~,Fx] = GetFE(Cx,D,5*N);
+%         Fx = [Fx(1,:); Fx(3,:); Fx(6,:); Fx(10,:); Fx(15,:)]
+%         npx = zeros(length(Cx)-1,1);
+%         [~,zix] = filter(1,Cx,0);
+%         
+%         % disturbance filtering y
+%         
+%         if (ordemFilter == 1);
+%             Cy = [1 -alfay];
+%         elseif (ordemFilter == 2);
+%             Cy = conv([1 -alfay],[1 -conj(alfay)]);
+%         elseif (ordemFilter == 3);
+%             Cy = conv([1 -alfaReal],conv([1 -alfay],[1 -conj(alfay)]));
+%         end
+%         
+%         [~,Fy] = GetFE(Cy,D,5*N);
+%         Fy = [Fy(1,:); Fy(3,:); Fy(6,:); Fy(10,:); Fy(15,:)]
+%         npy = zeros(length(Cy)-1,1);
+%         [~,ziy] = filter(1,Cy,0);
+%         
+%         % disturbance filtering theta
+%         if (ordemFilter == 1);
+%             Ctheta = [1 -alfatheta];
+%         elseif (ordemFilter == 2);
+%             Ctheta = conv([1 -alfatheta],[1 -conj(alfatheta)]);
+%         elseif (ordemFilter == 3);
+%             Ctheta = conv([1 -alfaReal],conv([1 -alfatheta],[1 -conj(alfatheta)]));
+%         end
+%         
+%         [~,Ftheta] = GetFE(Ctheta,D,5*N);
+%         Ftheta = [Ftheta(1,:); Ftheta(3,:); Ftheta(6,:); Ftheta(10,:); Ftheta(15,:)]
+%         nptheta = zeros(length(Ctheta)-1,1);
+%         [~,zitheta] = filter(1,Ctheta,0);
 
 %% LQR
 ur1 = 0.1;
@@ -126,6 +126,7 @@ uk = [0 0]';
 YKALM = [];
 YKEST = [];
 YKNOISE = [];
+YKMEASURED = [];
 yk = [0 -0.5 pi/2];
 ykest = yk;
 ykm = x0;
@@ -135,59 +136,77 @@ ykalman = x0;
 pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
-sd_xy = 0.5; % standard deviation
-sd_t = 0.0; % standard deviation
+sd_xy = 3; % standard deviation
+sd_t = 0.; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
-
+C1 = cov(noise_xy(1,:),noise_xy(2,:));
+C2 = cov(noise_xy(1,:),noise_t);
+C3 = cov(noise_xy(2,:),noise_t);
 
 % for i=1:iterations/2
 %    noise(:,i) = [0 0 0]'; 
 % end
 
+%% KALMAN Parameters
+Q_kal = diag([1 1 0.001]);
+% Q_kal(3,3) = 0.001;
+Q_kal = 0.0001*Q_kal;
+% R_kal = 1*[sd_xy^2 0 0;0 sd_xy^2 0;0 0 sd_t^2];
+R_kal = 1*[C1(1,1) C1(1,2) C2(1,2);C1(2,1) C1(2,2) C3(1,2);C2(2,1) C3(2,1) C3(2,2)];
+Pk = eye(3);
+
+%% GPS Sampling
+Ts_gps = 0.1;
+
 %% Simulation
 
 for k=1:iterations
-    
-    yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANTA
 
-    ykest = robot_model(ykest,uk,Ts); %MODELO 
+     
+    yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANTA
     
     if(k == round(iterations/2))
-        yk = yk + [0.3 0 0]';
+        yk = yk + [1 0 0]';
     end
-       
-    ykm = yk + noise(:,k);
     
-    [ykalman,Pk] = kalman_ext_predict(Ts,@robot_model,Q_kal,ykalman,uk,Pk);
-     [ykalman,~,Pk,~] = kalman_ext_update(Ts,@measurement_model,R_kal,ykalman,uk,Pk,ykm); 
 
-    n = (ykm - ykest);% +  noise(:,k) ;%n(t) = y(t) - x(t)
-    ykest = ykm;
+    
+    [ykest,Pk] = kalman_ext_predict(Ts,@robot_model,Q_kal,ykest,uk,Pk); % Modelo
+    
+    if(mod(k,Ts_gps) == 0)
+    ykm = yk + noise(:,k);
+    [ykest,~,Pk,~] = kalman_ext_update(Ts,@measurement_model,R_kal,ykest,uk,Pk,ykm); 
+%     n = (ykm - ykest);% +  noise(:,k) ;%n(t) = y(t) - x(t)
+    else
+%     n = [0 0 0]';
+    end
+    
+  
+    
+%     ykest = ykm;
         
 
-    % filter x
-    [nfx,zfx] = filter(1,Cx,n(1),zix);
-    zix = zfx;
-    npx = [nfx;npx(1:end-1)];
-    Nx = Fx*npx;
+%     % filter x
+%     [nfx,zfx] = filter(1,Cx,n(1),zix);
+%     zix = zfx;
+%     npx = [nfx;npx(1:end-1)];
+%     Nx = Fx*npx;
+%     
+%     % filter y
+%     [nfy,zfy] = filter(1,Cy,n(2),ziy);
+%     ziy = zfy;
+%     npy = [nfy;npy(1:end-1)];
+%     Ny = Fy*npy;
+%     
+%     % filter theta
+%     [nftheta,zftheta] = filter(1,Ctheta,n(3),zitheta);
+%     zitheta = zftheta;
+%     nptheta = [nftheta;nptheta(1:end-1)];
+%     Ntheta = Ftheta*nptheta;
     
-    % filter y
-    [nfy,zfy] = filter(1,Cy,n(2),ziy);
-    ziy = zfy;
-    npy = [nfy;npy(1:end-1)];
-    Ny = Fy*npy;
-    
-    % filter theta
-    [nftheta,zftheta] = filter(1,Ctheta,n(3),zitheta);
-    zitheta = zftheta;
-    nptheta = [nftheta;nptheta(1:end-1)];
-    Ntheta = Ftheta*nptheta;
-    
-    nfiltro = [Nx'; Ny'; Ntheta'];
-    
-    
+%     nfiltro = [Nx'; Ny'; Ntheta'];
     
       % Pega referencias futuras
        [Wr,Uref] = getRef_var(Xr,Ur,k+1,N); 
@@ -198,18 +217,18 @@ for k=1:iterations
     yb = ykest; 
  
     for j=1:N
-     yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j);
+     yb = robot_model(yb,ub,Ts*j);
      Yb = set_block(Yb,j,1,[n_out 1],yb);
     end
     
-
      
     % condições inicias pro impulso
         IC.x0 = ykest;
         IC.u0 = ub;
         %Toma G do modelo.
 %       G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
-      G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
+      G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
+      
       
 
      
@@ -226,7 +245,7 @@ for k=1:iterations
     L = [-uk; zeros(2*Nu,1)];
     end
      
-     Ku = M*EU + L(1:n_in*Nu,:);    % mgn
+     Ku = M_inv*EU + L(1:n_in*Nu,:);    % mgn
      
             
       K0 = 2*(G'*Qepsac*G + M_inv'*Repsac*M_inv);
@@ -272,7 +291,7 @@ for k=1:iterations
     UK = [UK uk];
      EK = [EK ek];
     YKEST= [YKEST ykest];
-    YKNOISE = [YKNOISE ykm];
+    YKMEASURED = [YKMEASURED ykm];
     
 
 end
@@ -280,14 +299,15 @@ end
 
 %% PLOTS
 close all
-plot(Xr(1,:),Xr(2,:),'black--');hold on
+plot(YKMEASURED(1,:),YKMEASURED(2,:),'green o');hold on
+plot(Xr(1,:),Xr(2,:),'black--');
 grid on;
 plot(YK(1,:),YK(2,:),'blue');
-plot(YKEST(1,:),YKEST(2,:),'red*');
+plot(YKEST(1,:),YKEST(2,:),'red');
 % plot(YKNOISE(1,:),YKNOISE(2,:),'magenta');
 % plot(YK_Noiseless(1,:),YK_Noiseless(2,:))
 title('Controle de Robô Ñ-Holonômico em trajetória')
-legend('Trajetória Referência','Real Robot','YKEST')
+legend('Measured','Trajetória Referência','Real Robot','Y_{Kalman}')
 % plot(time,YK)
 time = 1:iterations;
 grid on;

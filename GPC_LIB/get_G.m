@@ -1,11 +1,10 @@
 % Computa G pelo modelo e suas condições iniciais de entrada e estados
 
-
 function G = get_G(IC,model,increment,e,n,nu,Ts)
 x0 = IC.x0;
-u0 = IC.u0;
+uin = IC.u0;
 
-nin = length(u0);
+nin = length(uin);
 nout = length(x0);
 
 % USAR BLOCOS!
@@ -13,19 +12,18 @@ nout = length(x0);
 blksize = [nout nin];
 H = zeros(n*nout,nin);
 DH = H;
-
-
+u0 = repmat(uin,1,n);
     for i=1:nin %entradas
         h0 = x0;
         dh0 = x0;
+        
+     u0_inc = u0;
+     u0_inc(i,1) = u0(i,1) + increment;
 
      for j=1:n %predição
-         
-    u_inc = zeros(nin,1);
-    u_inc(i) = increment; %step na entrada i
-    
-    h = model(h0,u0,Ts) + e(:,j);  
-    dh = model(dh0,u0+u_inc,Ts) + e(:,j);  
+           
+    h = model(h0,u0(:,j),Ts) + e(:,j); 
+    dh = model(dh0,u0_inc(:,j),Ts) + e(:,j);    
     
     h0 = h;
     dh0 = dh;
@@ -38,12 +36,13 @@ DH = H;
 %aqui h é o primeiro bloco de G
 delta = (DH-H)/increment;
 deltaH = delta;
-for i=2:n
-    blk = get_block(delta,i,1,blksize) - get_block(delta,i-1,1,blksize);
-    deltaH = set_block(deltaH,i,1,blksize,blk);
-%    HH(i) = H(i)-H(i-1);  %derivada
-end
-
+%% Avaliar necessidade das derivadas aqui
+% for i=2:n
+%     blk = get_block(delta,i,1,blksize) - get_block(delta,i-1,1,blksize);
+%     deltaH = set_block(deltaH,i,1,blksize,blk);
+% %    HH(i) = H(i)-H(i-1);  %derivada
+% end
+%%
 G = [];
 HB_old = [];
 for i = 1:n

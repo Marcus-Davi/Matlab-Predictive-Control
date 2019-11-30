@@ -4,15 +4,15 @@ Ts = 0.1;
 % R = 1;
 v = 0.15;
 x0 = [0; 0; 0];
-[Xr,Ur,iterations] = path_L(1.5,v,Ts,x0);
-real_iterations = iterations - 5^2;
+[Xr,Ur,iterations] = path_L(5,v,Ts,x0);
+
 % plot(Xr(1,:),Xr(2,:));
 % return %testing
 
 
 
 %% ROBOT PARAMETERS
-vmax = 0.8;vmin = -vmax;
+vmax = 0.8;vmin = -0;
 wmax = 0.8;wmin = -wmax;
 
 %Model Robot
@@ -35,9 +35,9 @@ n_in = 2;
 n_out = 3;
 
 
-Qx = 10;
-Qy = 10;
-Qt = .00;
+Qx = 1;
+Qy = 1;
+Qt =  0.001;
 Q = diag([Qx Qy Qt]);
 Qcell = repmat({Q},1,N);
 Qepsac = blkdiag(Qcell{:}); %Ref
@@ -54,9 +54,9 @@ M_inv = M_inv+n_diag;
 M = inv(M_inv);
 %% ESPAC FILTERS
 ordemFilter = 2;
-alfax = 0.99;
+alfax = 0.999;
 alfay = alfax;
-alfatheta = alfax;
+alfatheta = 0.8;
         % disturbance filtering x
         D = [1 -1 zeros(1,ordemFilter-1)];
         
@@ -135,32 +135,29 @@ ykalman = x0;
 pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
-sd_xy = 0.5; % standard deviation
-sd_t = 0.0; % standard deviation
+sd_xy = 1; % standard deviation
+sd_t = 0.; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
 
 
-% for i=1:iterations/2
-%    noise(:,i) = [0 0 0]'; 
-% end
-
 %% Simulation
 
 for k=1:iterations
-
-    ykest = robot_model(ykest,uk,Ts); %MODELO 
+   
     yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANTA
-    
+      
     if(k == round(iterations/2))
-        yk = yk + [0.3 0 0]';
+        yk = yk + [1 0 0]';
     end
        
     ykm = yk + noise(:,k);
-
+    
+    
+    ykest = robot_model(ykest,uk,Ts); %MODELO 
     n = (ykm - ykest);% +  noise(:,k) ;%n(t) = y(t) - x(t)
-    ykest = ykm;
+    
         
 
     % filter x
@@ -188,23 +185,38 @@ for k=1:iterations
     
     % Preditctions
     ub = Uref(1:n_in,1);
-    Yb = zeros(n_out*N,1);    
-    yb = ykest; 
- 
-    for j=1:N
-     yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j);
+    Yb = zeros(n_out*N,1); 
+    
+    %% TIPOS DE RELIMENTAÇÃO
+    % --- SERIE-PARALELO BEGIN ---
+%     yb = ykm;  %measured
+%     for j=1:N
+%      yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j);
+%      Yb = set_block(Yb,j,1,[n_out 1],yb);
+%     end
+%     ykest = ykm;
+% --- SERIE-PARALELO END ---
+    
+    
+    % --- PARALELO BEGIN ---
+     yb = ykest;
+     for j=1:N 
+     yb = robot_model(yb,ub,Ts*j);
      Yb = set_block(Yb,j,1,[n_out 1],yb);
-    end
+     end
+%     Yb = Yb  + repmat(n,N,1);
+  Yb = Yb  + reshape(nfiltro,N*n_out,1);
+%     --- PARALELO END ---
     
 
-     
+%%      
     % condições inicias pro impulso
         IC.x0 = ykest;
         IC.u0 = ub;
         %Toma G do modelo.
 %       G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
-      G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
-      
+%       G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
+        G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
 
      
      %Calcula o erro da trajetória e base
@@ -220,7 +232,7 @@ for k=1:iterations
     L = [-uk; zeros(2*Nu,1)];
     end
      
-     Ku = M*EU + L(1:n_in*Nu,:);    % mgn
+     Ku = M_inv*EU + L(1:n_in*Nu,:);    % mgn
      
             
       K0 = 2*(G'*Qepsac*G + M_inv'*Repsac*M_inv);
@@ -274,14 +286,16 @@ end
 
 %% PLOTS
 close all
-plot(Xr(1,:),Xr(2,:),'black--');hold on
-grid on;
+plot(YKNOISE(1,:),YKNOISE(2,:),'green o');
+hold on
+plot(Xr(1,:),Xr(2,:),'black--');
 plot(YK(1,:),YK(2,:),'blue');
-plot(YKEST(1,:),YKEST(2,:),'red*');
+grid on;
+
 % plot(YKNOISE(1,:),YKNOISE(2,:),'magenta');
 % plot(YK_Noiseless(1,:),YK_Noiseless(2,:))
 title('Controle de Robô Ñ-Holonômico em trajetória')
-legend('Trajetória Referência','Real Robot','YKEST')
+legend('Measured','Trajetória Referência','Real Robot')
 % plot(time,YK)
 time = 1:iterations;
 grid on;

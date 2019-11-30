@@ -14,7 +14,7 @@ delay_v = 0; delay_w = 0;
 
 % Horizontes de controle e predi��o
 N = 5;
-Nu = 2;
+Nu = 1;
 
 %%% Outros Ajustes
 Qr = 0.001;
