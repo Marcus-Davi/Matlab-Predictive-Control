@@ -54,7 +54,7 @@ M_inv = M_inv+n_diag;
 M = inv(M_inv);
 %% ESPAC FILTERS
 ordemFilter = 2;
-alfax = 0.999;
+alfax = 0.995;
 alfay = alfax;
 alfatheta = 0.8;
         % disturbance filtering x
@@ -136,7 +136,7 @@ pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
 sd_xy = 1; % standard deviation
-sd_t = 0.; % standard deviation
+sd_t = 0.1; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
@@ -188,7 +188,7 @@ for k=1:iterations
     Yb = zeros(n_out*N,1); 
     
     %% TIPOS DE RELIMENTAÇÃO
-    % --- SERIE-PARALELO BEGIN ---
+%     --- SERIE-PARALELO BEGIN ---
 %     yb = ykm;  %measured
 %     for j=1:N
 %      yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j);
