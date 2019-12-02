@@ -1,4 +1,5 @@
 clear;close all;clc
+
 %% SIMULATION PARAMETERS
 Ts = 0.1;
 % R = 1;
@@ -14,6 +15,12 @@ x0 = [0; 0; 0];
 % plot(Ur(2,:))
 % return %testing
 
+%% ROS STUFF
+pub = rospublisher('/nanook_move'); %pra mover nanook
+msg = rosmessage('geometry_msgs/Twist'); % msg = rosmessage(pub);
+sensors = rossubscriber('/sensors'); %pegar velocidade
+r = rosrate(1/Ts);
+tf_tree = rostf;
 
 
 %% ROBOT PARAMETERS
@@ -59,9 +66,9 @@ M_inv = M_inv+n_diag;
 M = inv(M_inv);
 %% ESPAC FILTERS
 ordemFilter = 2;
-alfax = 0.9;
+alfax = 0.98;
 alfay = alfax;
-alfatheta = 0.9;
+alfatheta = 0.98;
 seq = getSequence(N);
         % disturbance filtering x
         D = [1 -1 zeros(1,ordemFilter-1)];
@@ -135,7 +142,6 @@ YKNOISE = [];
 yk = [0 0 0];
 ykest = yk;
 ykm = x0;
-ykalman = x0;
 
 % uk = [0 0]';
 pert = [0 0];
@@ -151,17 +157,25 @@ noise = [noise_xy;noise_t];
 %% Simulation
 
 for k=1:iterations
-   
-    yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANTA
-      
-    if(k == round(31))
-        yk = yk + [0 0 0]';
-    end
+
+    % ODOM
+    [vread,wread] = speedGet(sensors);
+%         yk = robot_model_real(yk,[vread wread],Ts,uncertainty); % PLANTA  
+%SLAM
+        waitForTransform(tf_tree, 'map', 'odom');
+    TF = getTransform(tf_tree, 'map', 'odom');
+    yk_slam = [TF.Transform.Translation.X TF.Transform.Translation.Y 0]';
+    quat = [  TF.Transform.Rotation.W TF.Transform.Rotation.X TF.Transform.Rotation.Y TF.Transform.Rotation.Z];
+    eul = quat2eul(quat);
+    yk_slam(3) = eul(1);
+    yk = yk_slam;
+    
        
     ykm = yk + noise(:,k);
     
     
-    ykest = robot_model(ykest,uk,Ts); %MODELO 
+    
+    ykest = robot_model(ykest,[vread wread],Ts); %MODELO 
     n = (ykm - ykest);% +  noise(:,k) ;%n(t) = y(t) - x(t)
     
         
@@ -284,6 +298,9 @@ for k=1:iterations
     uk(2) = max(uk(2),wmin);
     
     
+    
+%     motorGo(pub,uk(1),uk(2))
+    
     ek = Wr(1:n_out)-yk; %plotagem
     YK = [YK yk];
     UK = [UK uk];
@@ -291,9 +308,12 @@ for k=1:iterations
     YKEST= [YKEST ykest];
     YKNOISE = [YKNOISE ykm];
     
+    waitfor(r)
+    r.statistics
+    
 
 end
-
+  motorGo(pub,0.0,0)
 
 %% PLOTS
 close all
