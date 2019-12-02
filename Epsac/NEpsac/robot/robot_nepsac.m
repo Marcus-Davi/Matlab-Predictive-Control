@@ -2,11 +2,16 @@ clear;close all;clc
 %% SIMULATION PARAMETERS
 Ts = 0.1;
 % R = 1;
-v = 0.15;
+v = 0.1;
 x0 = [0; 0; 0];
-[Xr,Ur,iterations] = path_L(5,v,Ts,x0);
+[Xr,Ur,iterations] = path_SinL(1,1,v,Ts,x0);
 
 % plot(Xr(1,:),Xr(2,:));
+% figure
+% plot(Xr(3,:));
+% figure
+% plot(Ur(1,:));hold on
+% plot(Ur(2,:))
 % return %testing
 
 
@@ -54,9 +59,10 @@ M_inv = M_inv+n_diag;
 M = inv(M_inv);
 %% ESPAC FILTERS
 ordemFilter = 2;
-alfax = 0.995;
+alfax = 0.9;
 alfay = alfax;
-alfatheta = 0.8;
+alfatheta = 0.9;
+seq = getSequence(N);
         % disturbance filtering x
         D = [1 -1 zeros(1,ordemFilter-1)];
         
@@ -72,8 +78,8 @@ alfatheta = 0.8;
             
         end
         
-        [~,Fx] = GetFE(Cx,D,5*N);
-        Fx = [Fx(1,:); Fx(3,:); Fx(6,:); Fx(10,:); Fx(15,:)]
+        [~,Fx] = GetFE(Cx,D,N*N);
+        Fx = Fx([seq],:)
         npx = zeros(length(Cx)-1,1);
         [~,zix] = filter(1,Cx,0);
         
@@ -87,8 +93,8 @@ alfatheta = 0.8;
             Cy = conv([1 -alfaReal],conv([1 -alfay],[1 -conj(alfay)]));
         end
         
-        [~,Fy] = GetFE(Cy,D,5*N);
-        Fy = [Fy(1,:); Fy(3,:); Fy(6,:); Fy(10,:); Fy(15,:)]
+        [~,Fy] = GetFE(Cy,D,N*N);
+        Fy = Fy([seq],:)
         npy = zeros(length(Cy)-1,1);
         [~,ziy] = filter(1,Cy,0);
         
@@ -101,8 +107,8 @@ alfatheta = 0.8;
             Ctheta = conv([1 -alfaReal],conv([1 -alfatheta],[1 -conj(alfatheta)]));
         end
         
-        [~,Ftheta] = GetFE(Ctheta,D,5*N);
-        Ftheta = [Ftheta(1,:); Ftheta(3,:); Ftheta(6,:); Ftheta(10,:); Ftheta(15,:)]
+        [~,Ftheta] = GetFE(Ctheta,D,N*N);
+        Ftheta = Ftheta([seq],:)
         nptheta = zeros(length(Ctheta)-1,1);
         [~,zitheta] = filter(1,Ctheta,0);
 
@@ -126,7 +132,7 @@ uk = [0 0]';
 YKALM = [];
 YKEST = [];
 YKNOISE = [];
-yk = [0 -0.5 pi/2];
+yk = [0 -0.5 0];
 ykest = yk;
 ykm = x0;
 ykalman = x0;
@@ -135,8 +141,8 @@ ykalman = x0;
 pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
-sd_xy = 1; % standard deviation
-sd_t = 0.1; % standard deviation
+sd_xy = 0.; % standard deviation
+sd_t = 0.0; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
@@ -148,8 +154,8 @@ for k=1:iterations
    
     yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANTA
       
-    if(k == round(iterations/2))
-        yk = yk + [1 0 0]';
+    if(k == round(31))
+        yk = yk + [0 0 0]';
     end
        
     ykm = yk + noise(:,k);
@@ -182,6 +188,7 @@ for k=1:iterations
     
       % Pega referencias futuras
        [Wr,Uref] = getRef_var(Xr,Ur,k+1,N); 
+%        [Wr,Uref] = getRef(Xr,Ur,k+1,N); 
     
     % Preditctions
     ub = Uref(1:n_in,1);
@@ -189,23 +196,24 @@ for k=1:iterations
     
     %% TIPOS DE RELIMENTAÇÃO
 %     --- SERIE-PARALELO BEGIN ---
-%     yb = ykm;  %measured
-%     for j=1:N
-%      yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j);
-%      Yb = set_block(Yb,j,1,[n_out 1],yb);
-%     end
-%     ykest = ykm;
+    yb = ykm;  %measured
+    for j=1:N
+     yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j);
+%      yb = robot_model(yb,ub,Ts)+ nfiltro(:,j);
+     Yb = set_block(Yb,j,1,[n_out 1],yb);
+    end
+    ykest = ykm;
 % --- SERIE-PARALELO END ---
     
     
     % --- PARALELO BEGIN ---
-     yb = ykest;
-     for j=1:N 
-     yb = robot_model(yb,ub,Ts*j);
-     Yb = set_block(Yb,j,1,[n_out 1],yb);
-     end
-%     Yb = Yb  + repmat(n,N,1);
-  Yb = Yb  + reshape(nfiltro,N*n_out,1);
+%      yb = ykest;
+%      for j=1:N 
+%      yb = robot_model(yb,ub,Ts*j);
+%      Yb = set_block(Yb,j,1,[n_out 1],yb);
+%      end
+% %     Yb = Yb  + repmat(n,N,1);
+%   Yb = Yb  + reshape(nfiltro,N*n_out,1);
 %     --- PARALELO END ---
     
 
@@ -214,9 +222,12 @@ for k=1:iterations
         IC.x0 = ykest;
         IC.u0 = ub;
         %Toma G do modelo.
+%       G = get_G(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
+%       G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
 %       G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
-%       G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
-        G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
+      G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
+
+        
 
      
      %Calcula o erro da trajetória e base
@@ -276,7 +287,7 @@ for k=1:iterations
     ek = Wr(1:n_out)-yk; %plotagem
     YK = [YK yk];
     UK = [UK uk];
-     EK = [EK ek];
+    EK = [EK -ek];
     YKEST= [YKEST ykest];
     YKNOISE = [YKNOISE ykm];
     
@@ -290,7 +301,9 @@ plot(YKNOISE(1,:),YKNOISE(2,:),'green o');
 hold on
 plot(Xr(1,:),Xr(2,:),'black--');
 plot(YK(1,:),YK(2,:),'blue');
-grid on;
+xlabel('X (m)','interpreter','latex')
+ylabel('Y (m)','interpreter','latex')
+
 
 % plot(YKNOISE(1,:),YKNOISE(2,:),'magenta');
 % plot(YK_Noiseless(1,:),YK_Noiseless(2,:))
@@ -300,12 +313,27 @@ legend('Measured','Trajetória Referência','Real Robot')
 time = 1:iterations;
 grid on;
 figure
-plot(time*Ts,UK);
-grid on;
+subplot(2,1,1) %V
+plot(time*Ts,UK(1,:)); hold on; 
+plot(time*Ts,Ur(1,:),'black --');
+ylabel('$v\ (m/s)$','interpreter','latex')
+subplot(2,1,2) %omega
+plot(time*Ts,UK(2,:)); hold on;
+plot(time*Ts,Ur(2,:),'black --');
+ylabel('$\omega\ (rad/s)$','interpreter','latex')
+xlabel('Time(s)','interpreter','latex')
+
 figure
-plot(time*Ts,EK);
-legend('ex','ey','ez')
-grid on;
+subplot(3,1,1)
+plot(time*Ts,EK(1,:));
+ylabel('$(x_r - x) (m)$','interpreter','latex')
+subplot(3,1,2)
+plot(time*Ts,EK(2,:)); 
+ylabel('$(y_r - y) (m)$','interpreter','latex')
+subplot(3,1,3)
+plot(time*Ts,EK(3,:)); 
+ylabel('$(\theta_r - \theta) (m)$','interpreter','latex')
+xlabel('Time(s)','interpreter','latex')
 
 %% Funções Auxiliares
 

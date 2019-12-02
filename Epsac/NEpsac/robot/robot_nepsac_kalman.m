@@ -4,7 +4,7 @@ Ts = 0.1;
 % R = 1;
 v = 0.1;
 x0 = [0; 0; 0];
-[Xr,Ur,iterations] = path_L(5,v,Ts,x0);
+[Xr,Ur,iterations] = path_SinL(1.5,1,v,Ts,x0);
 
 % plot(Xr(1,:),Xr(2,:));
 % return %testing
@@ -136,7 +136,7 @@ ykalman = x0;
 pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
-sd_xy = 0.5; % standard deviation
+sd_xy = 0.; % standard deviation
 sd_t = 0.; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
@@ -168,7 +168,7 @@ for k=1:iterations
     yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANTA
     
     if(k == round(iterations/2))
-        yk = yk + [1 0 0]';
+%         yk = yk + [1 0 0]';
     end
     
 
@@ -299,25 +299,43 @@ end
 
 %% PLOTS
 close all
-plot(YKMEASURED(1,:),YKMEASURED(2,:),'green o');hold on
+plot(YKMEASURED(1,:),YKMEASURED(2,:),'green o');
+hold on
 plot(Xr(1,:),Xr(2,:),'black--');
-grid on;
 plot(YK(1,:),YK(2,:),'blue');
-plot(YKEST(1,:),YKEST(2,:),'red');
+xlabel('X (m)','interpreter','latex')
+ylabel('Y (m)','interpreter','latex')
+
+
 % plot(YKNOISE(1,:),YKNOISE(2,:),'magenta');
 % plot(YK_Noiseless(1,:),YK_Noiseless(2,:))
 title('Controle de Robô Ñ-Holonômico em trajetória')
-legend('Measured','Trajetória Referência','Real Robot','Y_{Kalman}')
+legend('Measured','Trajetória Referência','Real Robot')
 % plot(time,YK)
 time = 1:iterations;
 grid on;
 figure
-plot(time*Ts,UK);
-grid on;
+subplot(2,1,1) %V
+plot(time*Ts,UK(1,:)); hold on; 
+plot(time*Ts,Ur(1,:),'black --');
+ylabel('$v\ (m/s)$','interpreter','latex')
+subplot(2,1,2) %omega
+plot(time*Ts,UK(2,:)); hold on;
+plot(time*Ts,Ur(2,:),'black --');
+ylabel('$\omega\ (rad/s)$','interpreter','latex')
+xlabel('Time(s)','interpreter','latex')
+
 figure
-plot(time*Ts,EK);
-legend('ex','ey','ez')
-grid on;
+subplot(3,1,1)
+plot(time*Ts,EK(1,:));
+ylabel('$(x_r - x) (m)$','interpreter','latex')
+subplot(3,1,2)
+plot(time*Ts,EK(2,:)); 
+ylabel('$(y_r - y) (m)$','interpreter','latex')
+subplot(3,1,3)
+plot(time*Ts,EK(3,:)); 
+ylabel('$(\theta_r - \theta) (m)$','interpreter','latex')
+xlabel('Time(s)','interpreter','latex')
 
 %% Funções Auxiliares
 
