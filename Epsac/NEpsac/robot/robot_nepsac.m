@@ -2,11 +2,12 @@ clear;close all;clc
 %% SIMULATION PARAMETERS
 Ts = 0.1;
 % R = 1;
-v = 0.1;
+v = 0.15;
 x0 = [0; 0; 0];
-[Xr,Ur,iterations] = path_SinL(1,1,v,Ts,x0);
-
-% plot(Xr(1,:),Xr(2,:));
+% [Xr,Ur,iterations] = path_SinL(4,3.5,1,2,v,Ts,x0);   %path_SinL(4,3.5,1,2,v,Ts,x0)
+[Xr,Ur,iterations] = path_L(2,v,Ts,x0);
+plot(Xr(1,:),Xr(2,:));
+grid on
 % figure
 % plot(Xr(3,:));
 % figure
@@ -17,8 +18,8 @@ x0 = [0; 0; 0];
 
 
 %% ROBOT PARAMETERS
-vmax = 0.8;vmin = -0;
-wmax = 0.8;wmin = -wmax;
+vmax = .7;vmin = -vmax;
+wmax = .7;wmin = -wmax;
 
 %Model Robot
 ROBOT.R = 0.08; %wheel radius
@@ -113,29 +114,25 @@ seq = getSequence(N);
         [~,zitheta] = filter(1,Ctheta,0);
 
 %% LQR
-ur1 = 0.1;
-ur2 = 0.0;
-A = [0 ur2 0;-ur2 0 ur1;0 0 0];
-B = [1 0;0 0;0 1];
-C = eye(3);
-D = zeros(3,2);
-SYS = ss(A,B,C,D);
-Q = diag([1 100 0]);
-R = eye(2);
-[K_LQ,S,E] = lqr(SYS,Q,R);
+% ur1 = 0.1;
+% ur2 = 0.0;
+% A = [0 ur2 0;-ur2 0 ur1;0 0 0];
+% B = [1 0;0 0;0 1];
+% C = eye(3);
+% D = zeros(3,2);
+% SYS = ss(A,B,C,D);
+% Q = diag([1 100 0]);
+% R = eye(2);
+% [K_LQ,S,E] = lqr(SYS,Q,R);
 
 %% Simula
-YK = [];
-UK = [];
-EK = [];
 uk = [0 0]';
 YKALM = [];
 YKEST = [];
 YKNOISE = [];
-yk = [0 0 0];
+yk = [0 -0.5 0];
 ykest = yk;
 ykm = x0;
-ykalman = x0;
 
 % uk = [0 0]';
 pert = [0 0];
@@ -147,21 +144,23 @@ noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
 
-
+%% Graphics
+YK = zeros(n_out,iterations);
+UK = zeros(n_in,iterations);
+EK = zeros(n_out,iterations);
+% return
 %% Simulation
+HIL = 0;
 
 for k=1:iterations
-   
-    yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANTA
-      
-    if(k == round(31))
-        yk = yk + [0 0 0]';
-    end
-       
+
+    
+    ykest = robot_model(ykest,uk,Ts); %MODEL        
     ykm = yk + noise(:,k);
+       
     
     
-    ykest = robot_model(ykest,uk,Ts); %MODELO 
+
     n = (ykm - ykest);% +  noise(:,k) ;%n(t) = y(t) - x(t)
     
         
@@ -187,19 +186,20 @@ for k=1:iterations
     nfiltro = [Nx'; Ny'; Ntheta'];
     
       % Pega referencias futuras
-       [Wr,Uref] = getRef_var(Xr,Ur,k+1,N); 
-%        [Wr,Uref] = getRef(Xr,Ur,k+1,N); 
+       [Wr,Uref] = getRef_var(Xr,Ur,k-1,N); 
+%        [Wr,Uref] = getRef(Xr,Ur,k,N); 
     
     % Preditctions
     ub = Uref(1:n_in,1);
+%     ub = [0.5 0.5]'
     Yb = zeros(n_out*N,1); 
     
     %% TIPOS DE RELIMENTAÇÃO
 %     --- SERIE-PARALELO BEGIN ---
     yb = ykm;  %measured
     for j=1:N
-     yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j);
-%      yb = robot_model(yb,ub,Ts)+ nfiltro(:,j);
+     yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j); %VAR
+%      yb = robot_model(yb,ub,Ts)+ nfiltro(:,j); %NORMAL
      Yb = set_block(Yb,j,1,[n_out 1],yb);
     end
     ykest = ykm;
@@ -246,18 +246,16 @@ for k=1:iterations
      Ku = M_inv*EU + L(1:n_in*Nu,:);    % mgn
      
             
-      K0 = 2*(G'*Qepsac*G + M_inv'*Repsac*M_inv);
-      K1 = 2*(G'*Qepsac*E + M_inv'*Repsac*Ku); %incluir velocidade
+     K0 = 2*(G'*Qepsac*G + M_inv'*Repsac*M_inv);
+     K1 = 2*(G'*Qepsac*E + M_inv'*Repsac*Ku); %incluir velocidade
       
-     Uo = -K0\K1; %Solução Analítica
-    
-     Ub = Ub + Uo;
-     
+     Uo = -K0\K1; %Solução Analítica   
+     Ub = Ub + Uo;     
      uk = Ub(1:n_in);
     
-     
-  
     
+  
+    yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANTA
     % LQR OVERRIDE ---- INIT
     
 %     e_x = Xr(1,k)-yk(1);
@@ -282,22 +280,19 @@ for k=1:iterations
     uk(1) = max(uk(1),vmin);
     uk(2) = min(uk(2),wmax);
     uk(2) = max(uk(2),wmin);
+     
     
-    
-    ek = Wr(1:n_out)-yk; %plotagem
-    YK = [YK yk];
-    UK = [UK uk];
-    EK = [EK -ek];
-    YKEST= [YKEST ykest];
-    YKNOISE = [YKNOISE ykm];
-    
+     ek = Xr(:,k)-yk; %plotagem
+    YK(:,k) = yk;
+    UK(:,k) = uk;
+    EK(:,k) = -ek;
+
 
 end
 
-
 %% PLOTS
 close all
-plot(YKNOISE(1,:),YKNOISE(2,:),'green o');
+% plot(YKNOISE(1,:),YKNOISE(2,:),'green o');
 hold on
 plot(Xr(1,:),Xr(2,:),'black--');
 plot(YK(1,:),YK(2,:),'blue');
@@ -308,7 +303,7 @@ ylabel('Y (m)','interpreter','latex')
 % plot(YKNOISE(1,:),YKNOISE(2,:),'magenta');
 % plot(YK_Noiseless(1,:),YK_Noiseless(2,:))
 title('Controle de Robô Ñ-Holonômico em trajetória')
-legend('Measured','Trajetória Referência','Real Robot')
+legend('Reference Trajectory','Robot')
 % plot(time,YK)
 time = 1:iterations;
 grid on;
@@ -327,19 +322,22 @@ figure
 subplot(3,1,1)
 plot(time*Ts,EK(1,:));
 ylabel('$(x_r - x) (m)$','interpreter','latex')
+grid on;
 subplot(3,1,2)
 plot(time*Ts,EK(2,:)); 
+grid on;
 ylabel('$(y_r - y) (m)$','interpreter','latex')
 subplot(3,1,3)
 plot(time*Ts,EK(3,:)); 
+grid on;
 ylabel('$(\theta_r - \theta) (m)$','interpreter','latex')
 xlabel('Time(s)','interpreter','latex')
 
 %% Funções Auxiliares
 
 
-function e = getErr(W,Y,nu)
-e = W-Y;
+function e = getErr(Y,W,nu)
+e = Y-W;
 %suavização do erro em theta
 for i=1:nu
    e(i*3) = atan2(sin(e(i*3)),cos(e(i*3)));  %3 pq são 3 saídas!     
