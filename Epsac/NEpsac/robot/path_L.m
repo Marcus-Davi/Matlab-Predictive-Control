@@ -19,7 +19,7 @@ for k = 1:iterations  % 1 a tempo de simula��o/ tempo de integra��o
         if(k<iterations/2)
             xb(3)=x0(3);
         else
-             xb(3)=x0(3)+pi/2;
+             xb(3)=x0(3)-pi/2;
         end
     
     

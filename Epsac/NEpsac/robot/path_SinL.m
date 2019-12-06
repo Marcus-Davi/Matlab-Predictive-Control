@@ -16,8 +16,8 @@ iterations= round((Tsim/Ts));
 
 x = x0;
 x(3) = pi/4;
-x_old = 0;
-y_old = 0;
+x_old = x0(1);
+y_old = x0(2);
 dx_old = 0;
 dy_old = 0;
 
