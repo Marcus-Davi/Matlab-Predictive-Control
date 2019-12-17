@@ -1,14 +1,16 @@
 clear;close all;clc
 %% SIMULATION / EXPERIMENT PARAMETERS 
-HIL = 0; %Hard-In-Loop
+HIL = 1; %Hard-In-Loop
 
 Ts = 0.1;
 % R = 1;
 v = 0.1;
 x0 = [0.; 0; 0];
-%4 3.5 1.2 2
-[Xr,Ur,iterations] = path_SinL(4,3.5,1.2,2,v,Ts,x0);   %1,1
-% [Xr,Ur,iterations] = path_L(1.3,v,Ts,x0);
+%4 3.5 1.2 2 -> grande
+% [Xr,Ur,iterations] = path_SinL(4,3.5,1.2,2,v,Ts,x0);   % grande
+[Xr,Ur,iterations] = path_SinL(2,2.5,1.2,2,v,Ts,x0);   % pequena
+% [Xr,Ur,iterations] = path_square(2,[v v],Ts,x0);   
+% [Xr,Ur,iterations] = path_L(2.25,v,Ts,x0);
 
 plot(Xr(1,:),Xr(2,:));
 
@@ -27,12 +29,12 @@ msg = rosmessage('geometry_msgs/Twist'); % msg = rosmessage(pub);
 sensors = rossubscriber('/sensors'); %pegar velocidade
 slam = rossubscriber('/slam_out_pose');
 r = rosrate(1/Ts);
-load('MagCalibration.mat'); %MagOff
+% load('MagCalibration.mat'); %MagOff
 end
 
 %% ROBOT PARAMETERS
-vmax = 0.65;vmin = 0;
-wmax = 0.6;wmin = -wmax;
+vmax = 0.3;vmin = 0;
+wmax = 0.55;wmin = -wmax;
 
 %Model Robot
 ROBOT.R = 0.08; %wheel radius
@@ -69,9 +71,9 @@ M_inv = M_inv+n_diag;
 M = inv(M_inv);
 %% ESPAC FILTERS
 ordemFilter = 2;
-alfax = 0.9;
+alfax = 0.95;
 alfay = alfax;
-alfatheta = 0.9;
+alfatheta = 0.95;
 seq = getSequence(N);
         % disturbance filtering x
         D = [1 -1 zeros(1,ordemFilter-1)];
@@ -139,7 +141,7 @@ uk = [0 0]';
 YKALM = [];
 YKEST = [];
 YKNOISE = [];
-yk = [0 -0.5 0]'; %real
+yk = [0 -0.25 0]'; %real
 ykest = yk; %model
 yk_odom = yk;
 ykm = x0; 
@@ -149,8 +151,8 @@ yb = yk;
 pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
-sd_xy = 0.0; % standard deviation
-sd_t = 0.0; % standard deviation
+sd_xy = 0.1; % standard deviation
+sd_t = 0.1; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
@@ -171,13 +173,13 @@ for k=1:iterations
     % SENSOR READING
     sensor_data = receive(sensors);
     [vread,wread] = speedGet(sensor_data);
-    yaw = angleMagGet(sensor_data,MagOff);
-    if(yaw_zero_angle == 0) %magnetometer start
-        yaw_zero_angle = yaw;
-    end
+%     yaw = angleMagGet(sensor_data,MagOff);
+%     if(yaw_zero_angle == 0) %magnetometer start
+%         yaw_zero_angle = yaw;
+%     end
     % Odometry
       yk_odom = robot_model(yk_odom,[vread wread],Ts); % PLANTA 
-      yk_odom(3) = -(yaw - yaw_zero_angle); %magnetometer
+%       yk_odom(3) = -(yaw - yaw_zero_angle); %magnetometer
       
     % SLAM
     slam_pose = receive(slam); %SLAM   
@@ -188,10 +190,10 @@ for k=1:iterations
         
     
     % Pose Feedback. Use either slam or odometry
-%     ykm = yk_slam;
-    ykm = yk_odom;
+    ykm = yk_slam;
+%     ykm = yk_odom;
     
-    ykest = robot_model(ykest,[vread wread],Ts); %MODEL ESTIMATION
+    ykest = robot_model(yb,[vread wread],Ts); %MODEL ESTIMATION
     
     
     yk = ykm; %For Plots
@@ -201,6 +203,8 @@ for k=1:iterations
     yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANT
     ykest = robot_model(yb,uk,Ts); %MODEL ESTIMATION
     ykm = yk + noise(:,k);
+    vread = uk(1);
+    wread = uk(2);
     end
         
     %Error of estimation   
@@ -267,9 +271,9 @@ for k=1:iterations
         IC.x0 = yb;
         IC.u0 = ub;
         %Toma G do modelo.
-      G = get_G(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
+%       G = get_G(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
 %       G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
-%       G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
+      G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
 %       G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
 
         
@@ -327,19 +331,19 @@ for k=1:iterations
     
     ek = Xr(:,k)-yk; %plotagem
     YKM(:,k) = yk;
-    UK(:,k) = uk;
-%     UK(:,k) = [vread wread]';
+%     UK(:,k) = uk;
+    UK(:,k) = [vread wread]';
     EK(:,k) = -ek;
 %     YKEST= [YKEST ykest];
 %     YKNOISE = [YKNOISE ykm];
 
     %% Runtime
     if(HIL)
-    motorGo(pub,uk(1),uk(2))
-    plot(Xr(1,:),Xr(2,:));
-    hold on;
-    plot(YKM(1,:),YKM(2,:));
-    hold off;
+    motorGo(pub,uk(1),uk(2));
+%     plot(Xr(1,:),Xr(2,:));
+%     hold on;
+%     plot(YKM(1,:),YKM(2,:));
+%     hold off;
     
     waitfor(r)
     r.statistics
@@ -371,11 +375,11 @@ grid on;
 figure
 subplot(2,1,1) %V
 plot(time*Ts,UK(1,:)); hold on; 
-plot(time*Ts,Ur(1,:),'black --');
+% plot(time*Ts,Ur(1,:),'black --');
 ylabel('$v\ (m/s)$','interpreter','latex')
 subplot(2,1,2) %omega
 plot(time*Ts,UK(2,:)); hold on;
-plot(time*Ts,Ur(2,:),'black --');
+% plot(time*Ts,Ur(2,:),'black --');
 ylabel('$\omega\ (rad/s)$','interpreter','latex')
 xlabel('Time(s)','interpreter','latex')
 
