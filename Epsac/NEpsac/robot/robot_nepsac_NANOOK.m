@@ -1,13 +1,17 @@
 clear;close all;clc
+%% SIMULATION / EXPERIMENT PARAMETERS 
+HIL = 1; %Hard-In-Loop
 
-%% SIMULATION PARAMETERS
 Ts = 0.1;
 % R = 1;
 v = 0.1;
-x0 = [0; 0; 0];
-[Xr,Ur,iterations] = path_SinL(1,1,v,Ts,x0);
+x0 = [0.; 0.2; 0];
+% [Xr,Ur,iterations] = path_SinL(2,3,1,2,v,Ts,x0);   %1,1
+[Xr,Ur,iterations] = path_L(1.3,v,Ts,x0);
 
-% plot(Xr(1,:),Xr(2,:));
+plot(Xr(1,:),Xr(2,:));
+
+grid on
 % figure
 % plot(Xr(3,:));
 % figure
@@ -16,16 +20,18 @@ x0 = [0; 0; 0];
 % return %testing
 
 %% ROS STUFF
+if(HIL)
 pub = rospublisher('/nanook_move'); %pra mover nanook
 msg = rosmessage('geometry_msgs/Twist'); % msg = rosmessage(pub);
 sensors = rossubscriber('/sensors'); %pegar velocidade
+slam = rossubscriber('/slam_out_pose');
 r = rosrate(1/Ts);
-tf_tree = rostf;
-
+load('MagCalibration.mat'); %MagOff
+end
 
 %% ROBOT PARAMETERS
-vmax = 0.8;vmin = -0;
-wmax = 0.8;wmin = -wmax;
+vmax = 0.25;vmin = 0;
+wmax = 0.5;wmin = -wmax;
 
 %Model Robot
 ROBOT.R = 0.08; %wheel radius
@@ -46,19 +52,15 @@ Nu = 1;
 n_in = 2;
 n_out = 3;
 
-
 Qx = 1;
 Qy = 1;
 Qt =  0.001;
 Q = diag([Qx Qy Qt]);
 Qcell = repmat({Q},1,N);
 Qepsac = blkdiag(Qcell{:}); %Ref
-
 Qr = 0.001;
 Repsac = Qr*eye(Nu*n_in);
-
 du = 1e-5; %increment
-
 M_inv = eye(Nu*n_in);
 n_ones = -1*ones(n_in*(Nu-1),1);
 n_diag = diag(n_ones,-n_in);
@@ -66,9 +68,9 @@ M_inv = M_inv+n_diag;
 M = inv(M_inv);
 %% ESPAC FILTERS
 ordemFilter = 2;
-alfax = 0.98;
+alfax = 0.9;
 alfay = alfax;
-alfatheta = 0.98;
+alfatheta = 0.9;
 seq = getSequence(N);
         % disturbance filtering x
         D = [1 -1 zeros(1,ordemFilter-1)];
@@ -120,62 +122,86 @@ seq = getSequence(N);
         [~,zitheta] = filter(1,Ctheta,0);
 
 %% LQR
-ur1 = 0.1;
-ur2 = 0.0;
-A = [0 ur2 0;-ur2 0 ur1;0 0 0];
-B = [1 0;0 0;0 1];
-C = eye(3);
-D = zeros(3,2);
-SYS = ss(A,B,C,D);
-Q = diag([1 100 0]);
-R = eye(2);
-[K_LQ,S,E] = lqr(SYS,Q,R);
+% ur1 = 0.1;
+% ur2 = 0.0;
+% A = [0 ur2 0;-ur2 0 ur1;0 0 0];
+% B = [1 0;0 0;0 1];
+% C = eye(3);
+% D = zeros(3,2);
+% SYS = ss(A,B,C,D);
+% Q = diag([1 100 0]);
+% R = eye(2);
+% [K_LQ,S,E] = lqr(SYS,Q,R);
 
 %% Simula
-YK = [];
-UK = [];
-EK = [];
 uk = [0 0]';
 YKALM = [];
 YKEST = [];
 YKNOISE = [];
-yk = [0 0 0];
-ykest = yk;
-ykm = x0;
+yk = [0 0 0]'; %real
+ykest = yk; %model
+yk_odom = yk;
+ykm = x0; 
 
 % uk = [0 0]';
 pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
-sd_xy = 0.; % standard deviation
-sd_t = 0.0; % standard deviation
+sd_xy = 0.01; % standard deviation
+sd_t = 0.1; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
 
-
+%% Graphics
+YKM = zeros(n_out,iterations);
+UK = zeros(n_in,iterations);
+EK = zeros(n_out,iterations);
+% return
 %% Simulation
+yaw_zero_angle = 0;
 
 for k=1:iterations
-
-    % ODOM
-    [vread,wread] = speedGet(sensors);
-%         yk = robot_model_real(yk,[vread wread],Ts,uncertainty); % PLANTA  
-%SLAM
-        waitForTransform(tf_tree, 'map', 'odom');
-    TF = getTransform(tf_tree, 'map', 'odom');
-    yk_slam = [TF.Transform.Translation.X TF.Transform.Translation.Y 0]';
-    quat = [  TF.Transform.Rotation.W TF.Transform.Rotation.X TF.Transform.Rotation.Y TF.Transform.Rotation.Z];
+    
+    
+    if(HIL) %Experiment
+        
+    % SENSOR READING
+    sensor_data = receive(sensors);
+    [vread,wread] = speedGet(sensor_data);
+    yaw = angleMagGet(sensor_data,MagOff);
+    if(yaw_zero_angle == 0) %magnetometer start
+        yaw_zero_angle = yaw;
+    end
+    % Odometry
+      yk_odom = robot_model(yk_odom,[vread wread],Ts); % PLANTA 
+      yk_odom(3) = -(yaw - yaw_zero_angle); %magnetometer
+      
+    % SLAM
+    slam_pose = receive(slam); %SLAM   
+    quat = [  slam_pose.Pose.Orientation.W slam_pose.Pose.Orientation.X, ...
+              slam_pose.Pose.Orientation.Y, slam_pose.Pose.Orientation.Z];
     eul = quat2eul(quat);
-    yk_slam(3) = eul(1);
-    yk = yk_slam;
+    yk_slam = [slam_pose.Pose.Position.X slam_pose.Pose.Position.Y eul(1)]';
+        
     
-       
+    % Pose Feedback. Use either slam or odometry
+%     ykm = yk_slam;
+    ykm = yk_odom;
+    
+    ykest = robot_model(ykest,[vread wread],Ts); %MODEL ESTIMATION
+    
+    
+    yk = ykm; %For Plots
+    
+    
+    else %Simulation
+    yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANT
+    ykest = robot_model(ykest,uk,Ts); %MODEL ESTIMATION
     ykm = yk + noise(:,k);
-    
-    
-    
-    ykest = robot_model(ykest,[vread wread],Ts); %MODELO 
+    end
+        
+    %Error of estimation   
     n = (ykm - ykest);% +  noise(:,k) ;%n(t) = y(t) - x(t)
     
         
@@ -200,20 +226,20 @@ for k=1:iterations
     
     nfiltro = [Nx'; Ny'; Ntheta'];
     
-      % Pega referencias futuras
-       [Wr,Uref] = getRef_var(Xr,Ur,k+1,N); 
-%        [Wr,Uref] = getRef(Xr,Ur,k+1,N); 
+      % Get Future References
+       [Wr,Uref] = getRef_var(Xr,Ur,k,N); %Variable Horizon
+%        [Wr,Uref] = getRef(Xr,Ur,k,N); %Normal Horizon
     
     % Preditctions
-    ub = Uref(1:n_in,1);
-    Yb = zeros(n_out*N,1); 
+    ub = Uref(1:n_in,1); %U Base
+    Yb = zeros(n_out*N,1); %Y Base
     
     %% TIPOS DE RELIMENTAÇÃO
 %     --- SERIE-PARALELO BEGIN ---
     yb = ykm;  %measured
     for j=1:N
-     yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j);
-%      yb = robot_model(yb,ub,Ts)+ nfiltro(:,j);
+     yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j); %Variable Horizon
+%      yb = robot_model(yb,ub,Ts)+ nfiltro(:,j); % Normal Horizon
      Yb = set_block(Yb,j,1,[n_out 1],yb);
     end
     ykest = ykm;
@@ -221,9 +247,10 @@ for k=1:iterations
     
     
     % --- PARALELO BEGIN ---
-%      yb = ykest;
+%      yb = ykest; %estimated
 %      for j=1:N 
 %      yb = robot_model(yb,ub,Ts*j);
+%      yb = robot_model(yb,ub,Ts);
 %      Yb = set_block(Yb,j,1,[n_out 1],yb);
 %      end
 % %     Yb = Yb  + repmat(n,N,1);
@@ -268,10 +295,7 @@ for k=1:iterations
      Ub = Ub + Uo;
      
      uk = Ub(1:n_in);
-    
-     
-  
-    
+      
     % LQR OVERRIDE ---- INIT
     
 %     e_x = Xr(1,k)-yk(1);
@@ -296,31 +320,40 @@ for k=1:iterations
     uk(1) = max(uk(1),vmin);
     uk(2) = min(uk(2),wmax);
     uk(2) = max(uk(2),wmin);
+      
     
-    
-    
-%     motorGo(pub,uk(1),uk(2))
-    
-    ek = Wr(1:n_out)-yk; %plotagem
-    YK = [YK yk];
-    UK = [UK uk];
-    EK = [EK -ek];
-    YKEST= [YKEST ykest];
-    YKNOISE = [YKNOISE ykm];
+    ek = Xr(:,k)-yk; %plotagem
+    YKM(:,k) = yk;
+%     UK(:,k) = uk;
+    UK(:,k) = [vread wread]';
+    EK(:,k) = -ek;
+%     YKEST= [YKEST ykest];
+%     YKNOISE = [YKNOISE ykm];
+
+    %% Runtime
+    if(HIL)
+    motorGo(pub,uk(1),uk(2))
+    plot(Xr(1,:),Xr(2,:));
+    hold on;
+    plot(YKM(1,:),YKM(2,:));
+    hold off;
     
     waitfor(r)
     r.statistics
+    end
     
 
 end
-  motorGo(pub,0.0,0)
+if(HIL)
+  motorGo(pub,0.0,0);
+end
 
 %% PLOTS
 close all
-plot(YKNOISE(1,:),YKNOISE(2,:),'green o');
+% plot(YKNOISE(1,:),YKNOISE(2,:),'green o');
 hold on
 plot(Xr(1,:),Xr(2,:),'black--');
-plot(YK(1,:),YK(2,:),'blue');
+plot(YKM(1,:),YKM(2,:),'blue');
 xlabel('X (m)','interpreter','latex')
 ylabel('Y (m)','interpreter','latex')
 
@@ -328,7 +361,7 @@ ylabel('Y (m)','interpreter','latex')
 % plot(YKNOISE(1,:),YKNOISE(2,:),'magenta');
 % plot(YK_Noiseless(1,:),YK_Noiseless(2,:))
 title('Controle de Robô Ñ-Holonômico em trajetória')
-legend('Measured','Trajetória Referência','Real Robot')
+legend('Reference Trajectory','Robot')
 % plot(time,YK)
 time = 1:iterations;
 grid on;
@@ -347,11 +380,14 @@ figure
 subplot(3,1,1)
 plot(time*Ts,EK(1,:));
 ylabel('$(x_r - x) (m)$','interpreter','latex')
+grid on;
 subplot(3,1,2)
 plot(time*Ts,EK(2,:)); 
+grid on;
 ylabel('$(y_r - y) (m)$','interpreter','latex')
 subplot(3,1,3)
 plot(time*Ts,EK(3,:)); 
+grid on;
 ylabel('$(\theta_r - \theta) (m)$','interpreter','latex')
 xlabel('Time(s)','interpreter','latex')
 

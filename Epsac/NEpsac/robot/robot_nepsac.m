@@ -1,24 +1,25 @@
 clear;close all;clc
-%% SIMULATION PARAMETERS
+%% SIMULATION / EXPERIMENT PARAMETERS 
+HIL = 1; %Hard-In-Loop
 Ts = 0.1;
 % R = 1;
 v = 0.1;
-x0 = [0; 0; 0];
-[Xr,Ur,iterations] = path_SinL(1,1,v,Ts,x0);
+x0 = [0; 0.5; 0];
+% [Xr,Ur,iterations] = path_SinL(4,3.5,1,2,v,Ts,x0);   %1,1
+[Xr,Ur,iterations] = path_L(1.5,v,Ts,x0);
 
-% plot(Xr(1,:),Xr(2,:));
+plot(Xr(1,:),Xr(2,:));
+
+grid on
 % figure
 % plot(Xr(3,:));
 % figure
 % plot(Ur(1,:));hold on
 % plot(Ur(2,:))
 % return %testing
-
-
-
 %% ROBOT PARAMETERS
-vmax = 0.8;vmin = -0;
-wmax = 0.8;wmin = -wmax;
+vmax = 0.7;vmin = -vmax;
+wmax = 0.7;wmin = -wmax;
 
 %Model Robot
 ROBOT.R = 0.08; %wheel radius
@@ -59,9 +60,9 @@ M_inv = M_inv+n_diag;
 M = inv(M_inv);
 %% ESPAC FILTERS
 ordemFilter = 2;
-alfax = 0.9;
+alfax = 0.98;
 alfay = alfax;
-alfatheta = 0.9;
+alfatheta = 0.98;
 seq = getSequence(N);
         % disturbance filtering x
         D = [1 -1 zeros(1,ordemFilter-1)];
@@ -113,21 +114,18 @@ seq = getSequence(N);
         [~,zitheta] = filter(1,Ctheta,0);
 
 %% LQR
-ur1 = 0.1;
-ur2 = 0.0;
-A = [0 ur2 0;-ur2 0 ur1;0 0 0];
-B = [1 0;0 0;0 1];
-C = eye(3);
-D = zeros(3,2);
-SYS = ss(A,B,C,D);
-Q = diag([1 100 0]);
-R = eye(2);
-[K_LQ,S,E] = lqr(SYS,Q,R);
+% ur1 = 0.1;
+% ur2 = 0.0;
+% A = [0 ur2 0;-ur2 0 ur1;0 0 0];
+% B = [1 0;0 0;0 1];
+% C = eye(3);
+% D = zeros(3,2);
+% SYS = ss(A,B,C,D);
+% Q = diag([1 100 0]);
+% R = eye(2);
+% [K_LQ,S,E] = lqr(SYS,Q,R);
 
 %% Simula
-YK = [];
-UK = [];
-EK = [];
 uk = [0 0]';
 YKALM = [];
 YKEST = [];
@@ -135,7 +133,6 @@ YKNOISE = [];
 yk = [0 0 0];
 ykest = yk;
 ykm = x0;
-ykalman = x0;
 
 % uk = [0 0]';
 pert = [0 0];
@@ -147,21 +144,21 @@ noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
 
-
+%% Graphics
+YK = zeros(n_out,iterations);
+UK = zeros(n_in,iterations);
+EK = zeros(n_out,iterations);
+% return
 %% Simulation
 
+
 for k=1:iterations
-   
-    yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANTA
-      
-    if(k == round(31))
-        yk = yk + [0 0 0]';
-    end
-       
+
+
+    yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANTA   
+    ykest = robot_model(ykest,uk,Ts); %MODEL 
+    
     ykm = yk + noise(:,k);
-    
-    
-    ykest = robot_model(ykest,uk,Ts); %MODELO 
     n = (ykm - ykest);% +  noise(:,k) ;%n(t) = y(t) - x(t)
     
         
@@ -187,8 +184,8 @@ for k=1:iterations
     nfiltro = [Nx'; Ny'; Ntheta'];
     
       % Pega referencias futuras
-       [Wr,Uref] = getRef_var(Xr,Ur,k+1,N); 
-%        [Wr,Uref] = getRef(Xr,Ur,k+1,N); 
+       [Wr,Uref] = getRef_var(Xr,Ur,k,N); 
+%        [Wr,Uref] = getRef(Xr,Ur,k,N); 
     
     % Preditctions
     ub = Uref(1:n_in,1);
@@ -254,10 +251,7 @@ for k=1:iterations
      Ub = Ub + Uo;
      
      uk = Ub(1:n_in);
-    
-     
-  
-    
+      
     % LQR OVERRIDE ---- INIT
     
 %     e_x = Xr(1,k)-yk(1);
@@ -282,14 +276,15 @@ for k=1:iterations
     uk(1) = max(uk(1),vmin);
     uk(2) = min(uk(2),wmax);
     uk(2) = max(uk(2),wmin);
+      
     
-    
-    ek = Wr(1:n_out)-yk; %plotagem
-    YK = [YK yk];
-    UK = [UK uk];
-    EK = [EK -ek];
-    YKEST= [YKEST ykest];
-    YKNOISE = [YKNOISE ykm];
+    ek = Xr(:,k)-yk; %plotagem
+    YK(:,k) = yk;
+    UK(:,k) = uk;
+    EK(:,k) = -ek;
+%     YKEST= [YKEST ykest];
+%     YKNOISE = [YKNOISE ykm];
+
     
 
 end
@@ -297,7 +292,7 @@ end
 
 %% PLOTS
 close all
-plot(YKNOISE(1,:),YKNOISE(2,:),'green o');
+% plot(YKNOISE(1,:),YKNOISE(2,:),'green o');
 hold on
 plot(Xr(1,:),Xr(2,:),'black--');
 plot(YK(1,:),YK(2,:),'blue');
@@ -308,7 +303,7 @@ ylabel('Y (m)','interpreter','latex')
 % plot(YKNOISE(1,:),YKNOISE(2,:),'magenta');
 % plot(YK_Noiseless(1,:),YK_Noiseless(2,:))
 title('Controle de Robô Ñ-Holonômico em trajetória')
-legend('Measured','Trajetória Referência','Real Robot')
+legend('Reference Trajectory','Robot')
 % plot(time,YK)
 time = 1:iterations;
 grid on;
@@ -327,11 +322,14 @@ figure
 subplot(3,1,1)
 plot(time*Ts,EK(1,:));
 ylabel('$(x_r - x) (m)$','interpreter','latex')
+grid on;
 subplot(3,1,2)
 plot(time*Ts,EK(2,:)); 
+grid on;
 ylabel('$(y_r - y) (m)$','interpreter','latex')
 subplot(3,1,3)
 plot(time*Ts,EK(3,:)); 
+grid on;
 ylabel('$(\theta_r - \theta) (m)$','interpreter','latex')
 xlabel('Time(s)','interpreter','latex')
 

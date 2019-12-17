@@ -1,13 +1,14 @@
-%Raio,velocidade linear,Ts
-function [Xr,Ur,iterations] = path_SinL(ampl,dist,v0,Ts,x0)
+% Amplitude da Senoidal, distância X da senoidal, distancia trecho horz, distancia trecho vert, v0, ts
+function [Xr,Ur,iterations] = path_SinL(ampl,sin_dist,dist1,dist2,v0,Ts,x0)
 
 X = x0;
 % w0 = v0/R;
 
 
-sine_iterations = round(((3*pi/2)/v0)/Ts/(2*ampl));
-line_iterations = round((2*dist/v0)/Ts);
-Tsim = (sine_iterations + line_iterations)*Ts;
+sine_iterations = round(sin_dist/(v0*Ts))
+line_iterations1 = round((dist1/v0)/Ts);
+line_iterations2 = round((dist2/v0)/Ts);
+Tsim = (sine_iterations + line_iterations1 + line_iterations2)*Ts;
 X = x0;
 
 iterations= round((Tsim/Ts));
@@ -15,8 +16,8 @@ iterations= round((Tsim/Ts));
 
 x = x0;
 x(3) = pi/4;
-x_old = 0;
-y_old = 0;
+x_old = x0(1);
+y_old = x0(2);
 dx_old = 0;
 dy_old = 0;
 
@@ -27,11 +28,11 @@ for k = 1:iterations  % 1 a tempo de simula��o/ tempo de integra��o
 if k > sine_iterations
 
 
-if(k > (sine_iterations + line_iterations/2))
+if(k > (sine_iterations + line_iterations1)) %y
 x(1) =x(1);
-x(2) = x(2) + v0*Ts;
+x(2) = x(2) + v0*Ts; 
 x(3) = pi/2;   
-else
+else %x
 x(1) = x(1) + v0*Ts;
 x(2) = x(2);
 x(3) = 0;  
@@ -41,11 +42,8 @@ end
     w(k) = 0;
 else %sine
 
-x(1) = x(1) + v0*Ts/ampl;
-x(2) = x(2) + ampl*ampl*v0*Ts*sin(2*pi*ampl*x(1)/3 + pi/2);
-
-
-
+x(1) = x(1) + v0*Ts;
+x(2) = x(2) + (3*pi/4)*(ampl/sin_dist)*(v0*Ts)*sin(6*pi*x(1)/(4*sin_dist) + pi/2);
 
 
 end

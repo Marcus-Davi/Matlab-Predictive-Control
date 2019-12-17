@@ -27,7 +27,7 @@ n_diag = diag(n_ones,-n_in);
 M_inv = M_inv+n_diag;
 
 %0 -> PARAELO | 1-> SERIE_PARALELO    <----- ESCOLHA AQUI ###
-SERIE_PARALELO = 0; 
+SERIE_PARALELO = 1; 
 %% Modelo
 YK = [];
 UK = [];
