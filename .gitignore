@@ -2,5 +2,7 @@
 *.eps
 *.fig
 *.zip
+*.m~
+*.autosave
 
 slprj/
