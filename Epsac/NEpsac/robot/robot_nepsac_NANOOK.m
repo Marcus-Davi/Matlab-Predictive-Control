@@ -1,13 +1,14 @@
 clear;close all;clc
 %% SIMULATION / EXPERIMENT PARAMETERS 
-HIL = 1; %Hard-In-Loop
+HIL = 0; %Hard-In-Loop
 
 Ts = 0.1;
 % R = 1;
 v = 0.1;
-x0 = [0.; 0.2; 0];
-% [Xr,Ur,iterations] = path_SinL(2,3,1,2,v,Ts,x0);   %1,1
-[Xr,Ur,iterations] = path_L(1.3,v,Ts,x0);
+x0 = [0.; 0; 0];
+%4 3.5 1.2 2
+[Xr,Ur,iterations] = path_SinL(4,3.5,1.2,2,v,Ts,x0);   %1,1
+% [Xr,Ur,iterations] = path_L(1.3,v,Ts,x0);
 
 plot(Xr(1,:),Xr(2,:));
 
@@ -30,8 +31,8 @@ load('MagCalibration.mat'); %MagOff
 end
 
 %% ROBOT PARAMETERS
-vmax = 0.25;vmin = 0;
-wmax = 0.5;wmin = -wmax;
+vmax = 0.65;vmin = 0;
+wmax = 0.6;wmin = -wmax;
 
 %Model Robot
 ROBOT.R = 0.08; %wheel radius
@@ -60,7 +61,7 @@ Qcell = repmat({Q},1,N);
 Qepsac = blkdiag(Qcell{:}); %Ref
 Qr = 0.001;
 Repsac = Qr*eye(Nu*n_in);
-du = 1e-5; %increment
+du = 1e-6; %increment
 M_inv = eye(Nu*n_in);
 n_ones = -1*ones(n_in*(Nu-1),1);
 n_diag = diag(n_ones,-n_in);
@@ -138,17 +139,18 @@ uk = [0 0]';
 YKALM = [];
 YKEST = [];
 YKNOISE = [];
-yk = [0 0 0]'; %real
+yk = [0 -0.5 0]'; %real
 ykest = yk; %model
 yk_odom = yk;
 ykm = x0; 
+yb = yk;
 
 % uk = [0 0]';
 pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
-sd_xy = 0.01; % standard deviation
-sd_t = 0.1; % standard deviation
+sd_xy = 0.0; % standard deviation
+sd_t = 0.0; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
@@ -197,7 +199,7 @@ for k=1:iterations
     
     else %Simulation
     yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANT
-    ykest = robot_model(ykest,uk,Ts); %MODEL ESTIMATION
+    ykest = robot_model(yb,uk,Ts); %MODEL ESTIMATION
     ykm = yk + noise(:,k);
     end
         
@@ -227,49 +229,50 @@ for k=1:iterations
     nfiltro = [Nx'; Ny'; Ntheta'];
     
       % Get Future References
-       [Wr,Uref] = getRef_var(Xr,Ur,k,N); %Variable Horizon
-%        [Wr,Uref] = getRef(Xr,Ur,k,N); %Normal Horizon
+%        [Wr,Uref] = getRef_var(Xr,Ur,k,N); %Variable Horizon
+       [Wr,Uref] = getRef(Xr,Ur,k,N); %Normal Horizon
     
     % Preditctions
     ub = Uref(1:n_in,1); %U Base
+%     ub(2) = 0;
     Yb = zeros(n_out*N,1); %Y Base
     
     %% TIPOS DE RELIMENTAÇÃO
 %     --- SERIE-PARALELO BEGIN ---
     yb = ykm;  %measured
     for j=1:N
-     yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j); %Variable Horizon
-%      yb = robot_model(yb,ub,Ts)+ nfiltro(:,j); % Normal Horizon
+%      yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j); %Variable Horizon
+     yb = robot_model(yb,ub,Ts)+ nfiltro(:,j); % Normal Horizon
      Yb = set_block(Yb,j,1,[n_out 1],yb);
     end
-    ykest = ykm;
+    yb = ykm;
 % --- SERIE-PARALELO END ---
     
     
     % --- PARALELO BEGIN ---
 %      yb = ykest; %estimated
 %      for j=1:N 
-%      yb = robot_model(yb,ub,Ts*j);
+% %      yb = robot_model(yb,ub,Ts*j);
 %      yb = robot_model(yb,ub,Ts);
 %      Yb = set_block(Yb,j,1,[n_out 1],yb);
 %      end
 % %     Yb = Yb  + repmat(n,N,1);
 %   Yb = Yb  + reshape(nfiltro,N*n_out,1);
+%   yb = ykest;
 %     --- PARALELO END ---
     
 
 %%      
     % condições inicias pro impulso
-        IC.x0 = ykest;
+        IC.x0 = yb;
         IC.u0 = ub;
         %Toma G do modelo.
-%       G = get_G(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
+      G = get_G(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
 %       G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
 %       G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
-      G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
+%       G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
 
         
-
      
      %Calcula o erro da trajetória e base
      E = getErr(Yb,Wr,N);
@@ -324,8 +327,8 @@ for k=1:iterations
     
     ek = Xr(:,k)-yk; %plotagem
     YKM(:,k) = yk;
-%     UK(:,k) = uk;
-    UK(:,k) = [vread wread]';
+    UK(:,k) = uk;
+%     UK(:,k) = [vread wread]';
     EK(:,k) = -ek;
 %     YKEST= [YKEST ykest];
 %     YKNOISE = [YKNOISE ykm];
@@ -406,8 +409,7 @@ function [wr,ur] = getRef(Xr,Ur,k,nu)
 wr = [];
 ur = [];
 [~,kend] = size(Xr);
-for i=1:nu
-    
+for i=1:nu    
      %testa final da traj. se sim, repete
     if(k+i < kend)
     wr = [wr;Xr(:,k+i)];    
@@ -442,7 +444,7 @@ end
 function seq = getSequence(n)
 seq = zeros(n,1);
 for i=1:n
-   seq(i) = i*(i+1)/2;
+   seq(i) = i*(i+1)/2;%1 3 6 10 15
 end
 
 end
