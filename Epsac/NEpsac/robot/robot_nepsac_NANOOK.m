@@ -33,8 +33,8 @@ r = rosrate(1/Ts);
 end
 
 %% ROBOT PARAMETERS
-vmax = 0.3;vmin = 0;
-wmax = 0.55;wmin = -wmax;
+vmax = 0.25;vmin = 0;
+wmax = 0.5;wmin = -wmax;
 
 %Model Robot
 ROBOT.R = 0.08; %wheel radius
@@ -71,9 +71,9 @@ M_inv = M_inv+n_diag;
 M = inv(M_inv);
 %% ESPAC FILTERS
 ordemFilter = 2;
-alfax = 0.95;
+alfax = 0.9;
 alfay = alfax;
-alfatheta = 0.95;
+alfatheta = 0.9;
 seq = getSequence(N);
         % disturbance filtering x
         D = [1 -1 zeros(1,ordemFilter-1)];
@@ -141,7 +141,7 @@ uk = [0 0]';
 YKALM = [];
 YKEST = [];
 YKNOISE = [];
-yk = [0 -0.25 0]'; %real
+yk = [0 0 0]'; %real
 ykest = yk; %model
 yk_odom = yk;
 ykm = x0; 
@@ -151,8 +151,8 @@ yb = yk;
 pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
-sd_xy = 0.1; % standard deviation
-sd_t = 0.1; % standard deviation
+sd_xy = 0.0; % standard deviation
+sd_t = 0.0; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
@@ -194,14 +194,16 @@ for k=1:iterations
 %     ykm = yk_odom;
     
     ykest = robot_model(yb,[vread wread],Ts); %MODEL ESTIMATION
-    
+    ykest(3) = wrapToPi(ykest(3));
     
     yk = ykm; %For Plots
     
     
     else %Simulation
     yk = robot_model_real(yk,uk,Ts,uncertainty); % PLANT
+    yk(3) = wrapToPi(yk(3));
     ykest = robot_model(yb,uk,Ts); %MODEL ESTIMATION
+    ykest(3) = wrapToPi(ykest(3));
     ykm = yk + noise(:,k);
     vread = uk(1);
     wread = uk(2);
@@ -233,8 +235,8 @@ for k=1:iterations
     nfiltro = [Nx'; Ny'; Ntheta'];
     
       % Get Future References
-%        [Wr,Uref] = getRef_var(Xr,Ur,k,N); %Variable Horizon
-       [Wr,Uref] = getRef(Xr,Ur,k,N); %Normal Horizon
+       [Wr,Uref] = getRef_var(Xr,Ur,k,N); %Variable Horizon
+%        [Wr,Uref] = getRef(Xr,Ur,k,N); %Normal Horizon
     
     % Preditctions
     ub = Uref(1:n_in,1); %U Base
@@ -245,8 +247,8 @@ for k=1:iterations
 %     --- SERIE-PARALELO BEGIN ---
     yb = ykm;  %measured
     for j=1:N
-%      yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j); %Variable Horizon
-     yb = robot_model(yb,ub,Ts)+ nfiltro(:,j); % Normal Horizon
+     yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j); %Variable Horizon
+%      yb = robot_model(yb,ub,Ts)+ nfiltro(:,j); % Normal Horizon
      Yb = set_block(Yb,j,1,[n_out 1],yb);
     end
     yb = ykm;
@@ -273,10 +275,16 @@ for k=1:iterations
         %Toma G do modelo.
 %       G = get_G(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
 %       G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
-      G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
-%       G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
+%       G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
+      G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
 
-        
+     if(k == 585)
+    k
+    end
+
+if k == 185
+k
+end
      
      %Calcula o erro da trajetória e base
      E = getErr(Yb,Wr,N);
@@ -333,6 +341,7 @@ for k=1:iterations
     YKM(:,k) = yk;
 %     UK(:,k) = uk;
     UK(:,k) = [vread wread]';
+    ek(3) = atan2(sin(ek(3)),cos(ek(3)));
     EK(:,k) = -ek;
 %     YKEST= [YKEST ykest];
 %     YKNOISE = [YKNOISE ykm];
@@ -405,7 +414,15 @@ function e = getErr(W,Y,nu)
 e = W-Y;
 %suavização do erro em theta
 for i=1:nu
-   e(i*3) = atan2(sin(e(i*3)),cos(e(i*3)));  %3 pq são 3 saídas!     
+   e(i*3) = atan2(sin(e(i*3)),cos(e(i*3)));  %3 pq são 3 saídas! 
+% 	if(abs(e(i*3)) > pi)
+% 		if(e(i*3) > 0.0)
+% 		e(i*3) = e(i*3) - 2*pi;
+% 		else
+% 		e(i*3) = e(i*3) + 2*pi;
+%         end
+%     end
+	
 end
 end
 

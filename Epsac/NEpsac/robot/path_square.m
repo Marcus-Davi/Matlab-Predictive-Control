@@ -1,5 +1,5 @@
 %Raio,velocidade linear (intervalo),Ts
-function [Xr,Ur,Tsim] = path_square(dist,v0,Ts,x0)
+function [Xr,Ur,iterations] = path_square(dist,v0,Ts,x0)
 
 % w0 = v0/R;
 v_ff = linspace(v0(1),v0(2),4);
