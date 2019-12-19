@@ -152,8 +152,8 @@ yb = yk;
 pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
-sd_xy = 0.0; % standard deviation
-sd_t = 0.0; % standard deviation
+sd_xy = 0.05; % standard deviation
+sd_t = 0.05; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
@@ -236,8 +236,8 @@ for k=1:iterations
     nfiltro = [Nx'; Ny'; Ntheta'];
     
       % Get Future References
-%        [Wr,Uref] = getRef_var(Xr,Ur,k,N); %Variable Horizon
-       [Wr,Uref] = getRef(Xr,Ur,k,N); %Normal Horizon
+       [Wr,Uref] = getRef_var(Xr,Ur,k,N); %Variable Horizon
+%        [Wr,Uref] = getRef(Xr,Ur,k,N); %Normal Horizon
     
     % Preditctions
     ub = Uref(1:n_in,1); %U Base
@@ -248,8 +248,8 @@ for k=1:iterations
 %     --- SERIE-PARALELO BEGIN ---
     yb = ykm;  %measured
     for j=1:N
-%      yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j); %Variable Horizon
-     yb = robot_model(yb,ub,Ts)+ nfiltro(:,j); % Normal Horizon
+     yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j); %Variable Horizon
+%      yb = robot_model(yb,ub,Ts)+ nfiltro(:,j); % Normal Horizon
      yb(3) = wrapToPi(yb(3));
      Yb = set_block(Yb,j,1,[n_out 1],yb);
     end
@@ -276,8 +276,8 @@ for k=1:iterations
         IC.u0 = ub;
         %Toma G do modelo.
 %       G = get_G(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
-%       G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
-      G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
+      G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
+%       G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
 %       G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
 
      
