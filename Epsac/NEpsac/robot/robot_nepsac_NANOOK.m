@@ -20,6 +20,7 @@ grid on
 % figure
 % plot(Ur(1,:));hold on
 % plot(Ur(2,:))
+% Xr
 % return %testing
 
 %% ROS STUFF
@@ -33,7 +34,7 @@ r = rosrate(1/Ts);
 end
 
 %% ROBOT PARAMETERS
-vmax = 0.25;vmin = 0;
+vmax = 0.3;vmin = 0;
 wmax = 0.5;wmin = -wmax;
 
 %Model Robot
@@ -71,9 +72,9 @@ M_inv = M_inv+n_diag;
 M = inv(M_inv);
 %% ESPAC FILTERS
 ordemFilter = 2;
-alfax = 0.9;
+alfax = 0.95;
 alfay = alfax;
-alfatheta = 0.9;
+alfatheta = 0.95;
 seq = getSequence(N);
         % disturbance filtering x
         D = [1 -1 zeros(1,ordemFilter-1)];
@@ -235,8 +236,8 @@ for k=1:iterations
     nfiltro = [Nx'; Ny'; Ntheta'];
     
       % Get Future References
-       [Wr,Uref] = getRef_var(Xr,Ur,k,N); %Variable Horizon
-%        [Wr,Uref] = getRef(Xr,Ur,k,N); %Normal Horizon
+%        [Wr,Uref] = getRef_var(Xr,Ur,k,N); %Variable Horizon
+       [Wr,Uref] = getRef(Xr,Ur,k,N); %Normal Horizon
     
     % Preditctions
     ub = Uref(1:n_in,1); %U Base
@@ -247,8 +248,9 @@ for k=1:iterations
 %     --- SERIE-PARALELO BEGIN ---
     yb = ykm;  %measured
     for j=1:N
-     yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j); %Variable Horizon
-%      yb = robot_model(yb,ub,Ts)+ nfiltro(:,j); % Normal Horizon
+%      yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j); %Variable Horizon
+     yb = robot_model(yb,ub,Ts)+ nfiltro(:,j); % Normal Horizon
+     yb(3) = wrapToPi(yb(3));
      Yb = set_block(Yb,j,1,[n_out 1],yb);
     end
     yb = ykm;
@@ -275,16 +277,9 @@ for k=1:iterations
         %Toma G do modelo.
 %       G = get_G(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
 %       G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
-%       G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
-      G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
+      G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
+%       G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
 
-     if(k == 585)
-    k
-    end
-
-if k == 185
-k
-end
      
      %Calcula o erro da trajetória e base
      E = getErr(Yb,Wr,N);
@@ -354,7 +349,7 @@ end
 %     plot(YKM(1,:),YKM(2,:));
 %     hold off;
     
-    waitfor(r)
+    waitfor(r);
     r.statistics
     end
     
@@ -410,10 +405,10 @@ xlabel('Time(s)','interpreter','latex')
 %% Funções Auxiliares
 
 
-function e = getErr(W,Y,nu)
-e = W-Y;
+function e = getErr(Y,W,n)
+e = Y-W;
 %suavização do erro em theta
-for i=1:nu
+for i=1:n
    e(i*3) = atan2(sin(e(i*3)),cos(e(i*3)));  %3 pq são 3 saídas! 
 % 	if(abs(e(i*3)) > pi)
 % 		if(e(i*3) > 0.0)

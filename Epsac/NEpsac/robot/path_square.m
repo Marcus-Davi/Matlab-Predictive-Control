@@ -39,7 +39,8 @@ for k = 1:iterations  % 1 a tempo de simula��o/ tempo de integra��o
     
     X = [X, X(:,k)+ Ts*([v(k)*cos(xb(3));v(k)*sin(xb(3));0])];  %Marcus
     % xb = X2(:,k+1);
-    X(3,k)=xb(3);
+%     X(3,k)=xb(3);
+    X(3,k)=wrapToPi(xb(3));
     
     
 end
