@@ -1,6 +1,6 @@
 clear;close all;clc
 %% SIMULATION / EXPERIMENT PARAMETERS 
-HIL = 1; %Hard-In-Loop
+HIL = 0; %Hard-In-Loop
 
 Ts = 0.1;
 % R = 1;

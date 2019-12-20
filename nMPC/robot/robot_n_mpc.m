@@ -7,17 +7,17 @@ v = 0.1;
 [Xr,Ur,Tsim] = path_S(1,v,Ts,[0 0 0]');
 iterations = round((Tsim/Ts));
 
-x0 = [0; -1.0; 0];
+x0 = [0; -0.2; 0];
 yk = x0;
 % plot(Xr(1,:),Xr(2,:));
 % return %testing
 
 %% OPTIMIZER PARAMETERS
 options = optimoptions('fmincon','Display','off','Algorithm','sqp', ...
-                        'MaxIterations', 200);
+                        'MaxIterations', 50);
 %% ROBOT PARAMETERS
-vmax = 0.8;vmin = 0;
-wmax = 0.8;wmin = -wmax;
+vmax = 1;vmin = 0;
+wmax = 1;wmin = -wmax;
 
 %Model Robot
 ROBOT.R = 0.08; %wheel radius
@@ -38,13 +38,16 @@ Nu = 1;
 n_in = 2;
 n_out = 3;
 
-Ql = 0.01*eye(Nu*n_in); %Control
-
-Qt = 0.01;
-Q = diag([1 1 Qt]);
+Qx = 1;
+Qy = 1;
+Qt =  0.001;
+Q = diag([Qx Qy Qt]);
 Qcell = repmat({Q},1,N);
-Qepsac = blkdiag(Qcell{:}); %Ref
-du = 0.00001; %increment
+Ql = blkdiag(Qcell{:}); %Ref
+
+Qr = 0.001;
+Rl = Qr*eye(Nu*n_in);
+% du = 0.00001; %increment
 
 M_inv = eye(Nu*n_in);
 n_ones = -1*ones(n_in*(Nu-1),1);
@@ -53,16 +56,16 @@ M_inv = M_inv+n_diag;
 M = inv(M_inv);
 
 %% LQR
-ur1 = 0.1;
-ur2 = 0.0;
-A = [0 ur2 0;-ur2 0 ur1;0 0 0];
-B = [1 0;0 0;0 1];
-C = eye(3);
-D = zeros(3,2);
-SYS = ss(A,B,C,D);
-Q = diag([1 100 0]);
-R = eye(2);
-[K_LQ,S,E] = lqr(SYS,Q,R);
+% ur1 = 0.1;
+% ur2 = 0.0;
+% A = [0 ur2 0;-ur2 0 ur1;0 0 0];
+% B = [1 0;0 0;0 1];
+% C = eye(3);
+% D = zeros(3,2);
+% SYS = ss(A,B,C,D);
+% Q = diag([1 100 0]);
+% R = eye(2);
+% [K_LQ,S,E] = lqr(SYS,Q,R);
 
 
 %% Simula
@@ -97,16 +100,18 @@ for k=1:iterations
     
     ne = (ykm - ykest);% +  noise(:,k) ;%n(t) = y(t) - x(t)
     
-    [Wr,Uref] = getRef(Xr,Ur,k,N); 
+    [Wr,Uref] = getRef(Xr,Ur,k+1,N); 
+%     [Wr,Uref] = getRef_var(Xr,Ur,k+1,N); 
     
     nf = repmat(ne,1,N);
 %     nf = ne;
-    u = repmat(uk,1,N);
+    u = repmat(uk,N,1);
+    uk0 = uk;
     
-  X = fmincon(@(u) cost(Wr,yk,nf,u,uk,Ts,N,Nu,C,Ql),u,[],[],[],[],[],[],[],options); %SERIE-PARALELO
+  X = fmincon(@(u) cost(Wr,yk,Uref,u,uk0,Ts,N,Nu,[],nf,Ql,Rl),u,[],[],[],[],[],[],[],options); %SERIE-PARALELO
     
 
-     uk = uk + X(:,1); %Extrai apenas o atual
+     uk = uk + X(1:2,1); %Extrai apenas o atual
      
   
     
@@ -164,40 +169,55 @@ legend('ex','ey','ez')
 %% Funções Auxiliares
 
 
-function [y,naoimporta] = cost(ref,yk,nf,u,uk,Ts,n,nu,C,Ql)
-x = zeros(n,1);
+function [y,naoimporta] = cost(Wr,yk,Uref,uk,uk0,Ts,N,Nu,C,nf,Ql,Rl)
 
-[~,n_in] = size(u);
 
-M_inv = eye(nu*n_in);
-n_ones = -1*ones(n_in*(nu-1),1);
+n_in = length(uk)/N;
+n_out= length(yk);
+M_inv = eye(Nu*n_in);
+n_ones = -1*ones(n_in*(Nu-1),1);
 n_diag = diag(n_ones,-n_in);
 M_inv = M_inv+n_diag;
+M = inv(M_inv);
 
-nlin = length(M_inv);
-
-u0 = [uk; zeros(nlin-1,1)];
-
-Yb = zeros(9,1);
+Yb = zeros(N*n_out,1);
 yb = yk;
+
+
+uref = Uref(1:n_in*Nu);
+u0 = uk(1:n_in*Nu)
 % Yb = [];
-    for i=1:n
-     yb = robot_model(yb,u(:,i),Ts) + nf(i);   %incluir erro
+    for i=1:N
+        u = get_block(uk,i,1,[2 1]); %pega os u's futuros
+%      yb = robot_model(yb,u,Ts*i)+ nf(:,i); %Variable Horizon
+     yb = robot_model(yb,u,Ts)+ nf(:,i); % Normal
      Yb = set_block(Yb,i,1,[3 1],yb);
-% Yb = [Yb ;yb];
     end
-    
-y = norm(ref-Yb)^2; %+ (M_inv*u-u0)'*Ql*(M_inv*u-u0);
+% u = uk(1:n_in*Nu);     
+
+% L = [Uref(1:2) - uk0 ; zeros(n_in*Nu,1)];
+% Ku = M_inv*EU + L(1:n_in*Nu,:);
+
+
+y = (Wr-Yb)'*Ql*(Wr-Yb) + (M_inv*u0)
 
 
 naoimporta =[];
 end
 
-function e = getErr(W,Y,nu)
-e = W-Y;
+function e = getErr(Y,W,n)
+e = Y-W;
 %suavização do erro em theta
-for i=1:nu
-   e(i*3) = atan2(sin(e(i*3)),cos(e(i*3)));  %3 pq são 3 saídas!     
+for i=1:n
+   e(i*3) = atan2(sin(e(i*3)),cos(e(i*3)));  %3 pq são 3 saídas! 
+% 	if(abs(e(i*3)) > pi)
+% 		if(e(i*3) > 0.0)
+% 		e(i*3) = e(i*3) - 2*pi;
+% 		else
+% 		e(i*3) = e(i*3) + 2*pi;
+%         end
+%     end
+	
 end
 end
 
@@ -205,8 +225,7 @@ function [wr,ur] = getRef(Xr,Ur,k,nu)
 wr = [];
 ur = [];
 [~,kend] = size(Xr);
-for i=1:nu
-    
+for i=1:nu    
      %testa final da traj. se sim, repete
     if(k+i < kend)
     wr = [wr;Xr(:,k+i)];    
@@ -216,6 +235,32 @@ for i=1:nu
     ur = [ur;Ur(:,end)];
     end
 
+end
+
+end
+
+function [wr,ur] = getRef_var(Xr,Ur,k,nu)
+wr = [];
+ur = [];
+[~,kend] = size(Xr);
+Seq = getSequence(nu);
+for i=1:nu    
+     %testa final da traj. se sim, repete
+    if(k+Seq(i) < kend)
+    wr = [wr;Xr(:,k+Seq(i))];    
+    ur = [ur;Ur(:,k+Seq(i))];    
+    else
+    wr = [wr;Xr(:,end)];
+    ur = [ur;Ur(:,end)];
+    end
+end
+
+end
+
+function seq = getSequence(n)
+seq = zeros(n,1);
+for i=1:n
+   seq(i) = i*(i+1)/2;%1 3 6 10 15
 end
 
 end
