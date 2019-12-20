@@ -5,7 +5,7 @@ HIL = 1; %Hard-In-Loop
 Ts = 0.1;
 % R = 1;
 v = 0.1;
-x0 = [0.; 0; 0];
+x0 = [0.; 0.1; 0];
 %4 3.5 1.2 2 -> grande
 % [Xr,Ur,iterations] = path_SinL(4,3.5,1.2,2,v,Ts,x0);   % grande
 [Xr,Ur,iterations] = path_SinL(2,2.5,1.2,2,v,Ts,x0);   % pequena
@@ -30,12 +30,13 @@ msg = rosmessage('geometry_msgs/Twist'); % msg = rosmessage(pub);
 sensors = rossubscriber('/sensors'); %pegar velocidade
 slam = rossubscriber('/slam_out_pose');
 r = rosrate(1/Ts);
+map_topic = rossubscriber('map');
 % load('MagCalibration.mat'); %MagOff
 end
 
 %% ROBOT PARAMETERS
 vmax = 0.3;vmin = 0;
-wmax = 0.5;wmin = -wmax;
+wmax = 0.6;wmin = -wmax;
 
 %Model Robot
 ROBOT.R = 0.08; %wheel radius
@@ -58,11 +59,11 @@ n_out = 3;
 
 Qx = 1;
 Qy = 1;
-Qt =  0.001;
+Qt = 0.005; %0.005
 Q = diag([Qx Qy Qt]);
 Qcell = repmat({Q},1,N);
 Qepsac = blkdiag(Qcell{:}); %Ref
-Qr = 0.001;
+Qr = 0.005; %0.005
 Repsac = Qr*eye(Nu*n_in);
 du = 1e-6; %increment
 M_inv = eye(Nu*n_in);
@@ -152,8 +153,8 @@ yb = yk;
 pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
-sd_xy = 0.05; % standard deviation
-sd_t = 0.05; % standard deviation
+sd_xy = 0.06; % standard deviation
+sd_t = 0.06; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
@@ -276,9 +277,9 @@ for k=1:iterations
         IC.u0 = ub;
         %Toma G do modelo.
 %       G = get_G(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
-      G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
+%       G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
 %       G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
-%       G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
+      G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
 
      
      %Calcula o erro da trajetória e base
@@ -379,11 +380,11 @@ grid on;
 figure
 subplot(2,1,1) %V
 plot(time*Ts,UK(1,:)); hold on; 
-% plot(time*Ts,Ur(1,:),'black --');
+plot(time*Ts,Ur(1,:),'black --');
 ylabel('$v\ (m/s)$','interpreter','latex')
 subplot(2,1,2) %omega
 plot(time*Ts,UK(2,:)); hold on;
-% plot(time*Ts,Ur(2,:),'black --');
+plot(time*Ts,Ur(2,:),'black --');
 ylabel('$\omega\ (rad/s)$','interpreter','latex')
 xlabel('Time(s)','interpreter','latex')
 
@@ -401,7 +402,11 @@ plot(time*Ts,EK(3,:));
 grid on;
 ylabel('$(\theta_r - \theta) (m)$','interpreter','latex')
 xlabel('Time(s)','interpreter','latex')
-
+if(HIL)
+% map = receive(map_topic);
+% map_matlab = readBinaryOccupancyGrid(map);
+% save('map_matlab','map_matlab')
+end
 %% Funções Auxiliares
 
 

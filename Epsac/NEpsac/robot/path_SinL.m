@@ -5,7 +5,7 @@ X = x0;
 % w0 = v0/R;
 
 
-sine_iterations = round(sin_dist/(v0*Ts))
+sine_iterations = round(sin_dist/(v0*Ts));
 line_iterations1 = round((dist1/v0)/Ts);
 line_iterations2 = round((dist2/v0)/Ts);
 Tsim = (sine_iterations + line_iterations1 + line_iterations2)*Ts;
