@@ -5,12 +5,13 @@ HIL = 0; %Hard-In-Loop
 Ts = 0.1;
 % R = 1;
 v = 0.1;
-x0 = [0.; 0.1; 0];
+x0 = [0.; 0.5; 0];
 %4 3.5 1.2 2 -> grande
 % [Xr,Ur,iterations] = path_SinL(4,3.5,1.2,2,v,Ts,x0);   % grande
-[Xr,Ur,iterations] = path_SinL(2,2.5,1.2,2,v,Ts,x0);   % pequena
+% [Xr,Ur,iterations] = path_SinL(2,2.5,1.2,2,v,Ts,x0);   % pequena
 % [Xr,Ur,iterations] = path_square(2,[v v],Ts,x0);   
 % [Xr,Ur,iterations] = path_L(2.25,v,Ts,x0);
+[Xr,Ur,iterations] = path_line(10,v,Ts,x0);
 
 plot(Xr(1,:),Xr(2,:));
 
@@ -153,8 +154,8 @@ yb = yk;
 pert = [0 0];
 % Creates noise profile
 Mean = 0; % zero mean
-sd_xy = 0.06; % standard deviation
-sd_t = 0.06; % standard deviation
+sd_xy = 0.0; % standard deviation
+sd_t = 0.0; % standard deviation
 noise_xy = Mean + sd_xy.*randn(2,iterations);
 noise_t = Mean + sd_t.*randn(1,iterations);
 noise = [noise_xy;noise_t];
