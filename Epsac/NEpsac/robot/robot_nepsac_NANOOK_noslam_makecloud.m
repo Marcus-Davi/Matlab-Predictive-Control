@@ -1,18 +1,17 @@
 clear;close all;clc
 %% SIMULATION / EXPERIMENT PARAMETERS 
-HIL = 0; %Hard-In-Loop
+HIL = 1; %Hard-In-Loop
 
 Ts = 0.1;
 % R = 1;
 v = 0.1;
-x0 = [0.; 0.1; 0];
+x0 = [0.25; 0.25; 0];
 %4 3.5 1.2 2 -> grande
-% [Xr,Ur,iterations] = path_SinL(4,3.5,1.2,2,v,Ts,x0);   % grande (original artigo)
-[Xr,Ur,iterations] = path_SinL(1.2,1.2,1.2,2,v,Ts,x0);   % grande TESTE
-% [Xr,Ur,iterations] = path_SinL(2,2.5,1.2,2,v,Ts,x0);   % pequena (LAB)
+% [Xr,Ur,iterations] = path_SinL(4,3.5,1.2,2,v,Ts,x0);   % grande
+% [Xr,Ur,iterations] = path_SinL(2,2.5,1.2,2,v,Ts,x0);   % pequena
 % [Xr,Ur,iterations] = path_square(2,[v v],Ts,x0);   
 % [Xr,Ur,iterations] = path_L(2.25,v,Ts,x0);
-% [Xr,Ur,iterations] = path_line(2.5,v,Ts,x0);
+[Xr,Ur,iterations] = path_line(2.5,v,Ts,x0);
 
 plot(Xr(1,:),Xr(2,:));
 
@@ -30,26 +29,26 @@ if(HIL)
 pub = rospublisher('/nanook_move'); %pra mover nanook
 msg = rosmessage('geometry_msgs/Twist'); % msg = rosmessage(pub);
 sensors = rossubscriber('/sensors'); %pegar velocidade
-slam = rossubscriber('/slam_out_pose');
+% slam = rossubscriber('/slam_out_pose');
 r = rosrate(1/Ts);
-map_topic = rossubscriber('map');
+% map_topic = rossubscriber('map');
 % load('MagCalibration.mat'); %MagOff
 end
 
 %% ROBOT PARAMETERS
 vmax = 0.3;vmin = 0;
-wmax = 0.7;wmin = -wmax;
+wmax = 0.6;wmin = -wmax;
 
 %Model Robot
-ROBOT.R = 0.08; %wheel radius
-ROBOT.D = 0.4; %Robot diameter
+ROBOT.R = 0.07; %wheel radius
+ROBOT.D = 0.44; %Robot diameter
 
 %Real Robot
-ROBOT_REAL.R = 0.08;
-ROBOT_REAL.D = 0.4;
+% ROBOT_REAL.R = 0.1;
+% ROBOT_REAL.D = 0.405;
 
-uncertainty.R = ROBOT.R/ROBOT_REAL.R;
-uncertainty.D = ROBOT.D/ROBOT_REAL.D;
+% uncertainty.R = ROBOT.R/ROBOT_REAL.R;
+% uncertainty.D = ROBOT.D/ROBOT_REAL.D;
 
 
 
@@ -75,9 +74,9 @@ M_inv = M_inv+n_diag;
 M = inv(M_inv);
 %% ESPAC FILTERS
 ordemFilter = 2;
-alfax = 0.9;
+alfax = 0.95;
 alfay = alfax;
-alfatheta = 0.9;
+alfatheta = 0.95;
 seq = getSequence(N);
         % disturbance filtering x
         D = [1 -1 zeros(1,ordemFilter-1)];
@@ -167,7 +166,7 @@ UK = zeros(n_in,iterations);
 EK = zeros(n_out,iterations);
 % return
 %% Simulation
-% yaw_zero_angle = 0;
+yaw_zero_angle = 0;
 
 for k=1:iterations
     
@@ -183,14 +182,15 @@ for k=1:iterations
 %     end
     % Odometry
       yk_odom = robot_model(yk_odom,[vread wread],Ts); % PLANTA 
+      yk_odom(3) = wrapToPi(yk_odom(3));
 %       yk_odom(3) = -(yaw - yaw_zero_angle); %magnetometer
       
     % SLAM
-    slam_pose = receive(slam); %SLAM   
-    quat = [  slam_pose.Pose.Orientation.W slam_pose.Pose.Orientation.X, ...
-              slam_pose.Pose.Orientation.Y, slam_pose.Pose.Orientation.Z];
-    eul = quat2eul(quat);
-    yk_slam = [slam_pose.Pose.Position.X slam_pose.Pose.Position.Y eul(1)]';
+%     slam_pose = receive(slam); %SLAM   
+%     quat = [  slam_pose.Pose.Orientation.W slam_pose.Pose.Orientation.X, ...
+%               slam_pose.Pose.Orientation.Y, slam_pose.Pose.Orientation.Z];
+%     eul = quat2eul(quat);
+%     yk_slam = [slam_pose.Pose.Position.X slam_pose.Pose.Position.Y eul(1)]';
         
     
     % Pose Feedback. Use either slam or odometry
@@ -239,8 +239,8 @@ for k=1:iterations
     nfiltro = [Nx'; Ny'; Ntheta'];
     
       % Get Future References
-%        [Wr,Uref] = getRef_var(Xr,Ur,k,N); %Variable Horizon
-       [Wr,Uref] = getRef(Xr,Ur,k,N); %Normal Horizon
+       [Wr,Uref] = getRef_var(Xr,Ur,k,N); %Variable Horizon
+%        [Wr,Uref] = getRef(Xr,Ur,k,N); %Normal Horizon
     
     % Preditctions
     ub = Uref(1:n_in,1); %U Base
@@ -251,8 +251,8 @@ for k=1:iterations
 %     --- SERIE-PARALELO BEGIN ---
     yb = ykm;  %measured
     for j=1:N
-%      yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j); %Variable Horizon
-     yb = robot_model(yb,ub,Ts)+ nfiltro(:,j); % Normal Horizon
+     yb = robot_model(yb,ub,Ts*j)+ nfiltro(:,j); %Variable Horizon
+%      yb = robot_model(yb,ub,Ts)+ nfiltro(:,j); % Normal Horizon
      yb(3) = wrapToPi(yb(3));
      Yb = set_block(Yb,j,1,[n_out 1],yb);
     end
@@ -278,10 +278,10 @@ for k=1:iterations
         IC.x0 = yb;
         IC.u0 = ub;
         %Toma G do modelo.
-      G = get_G(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
+%       G = get_G(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
 %       G = get_G_var(IC,@robot_model,du,repmat([0 0 0]',1,N),N,Nu,Ts);
 %       G = get_G(IC,@robot_model,du,nfiltro,N,Nu,Ts);
-%       G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
+      G = get_G_var(IC,@robot_model,du,nfiltro,N,Nu,Ts);
 
      
      %Calcula o erro da trajetória e base
@@ -366,8 +366,8 @@ end
 close all
 % plot(YKNOISE(1,:),YKNOISE(2,:),'green o');
 hold on
-plot(Xr(1,:),Xr(2,:),'black--','linewidth',2);
-plot(YKM(1,:),YKM(2,:),'red','linewidth',2);
+plot(Xr(1,:),Xr(2,:),'black--');
+plot(YKM(1,:),YKM(2,:),'blue');
 xlabel('X (m)','interpreter','latex')
 ylabel('Y (m)','interpreter','latex')
 
@@ -375,35 +375,32 @@ ylabel('Y (m)','interpreter','latex')
 % plot(YKNOISE(1,:),YKNOISE(2,:),'magenta');
 % plot(YK_Noiseless(1,:),YK_Noiseless(2,:))
 title('Controle de Robô Ñ-Holonômico em trajetória')
-legend('Reference','EPSAC-B')
+legend('Reference Trajectory','Robot')
 % plot(time,YK)
 time = 1:iterations;
 grid on;
 figure
 subplot(2,1,1) %V
-plot(time*Ts,UK(1,:),'red','linewidth',2); hold on; 
-plot(time*Ts,Ur(1,:),'black --','linewidth',2);
+plot(time*Ts,UK(1,:)); hold on; 
+plot(time*Ts,Ur(1,:),'black --');
 ylabel('$v\ (m/s)$','interpreter','latex')
-legend('Reference','EPSAC-B')
-grid on
 subplot(2,1,2) %omega
-plot(time*Ts,UK(2,:),'red','linewidth',2); hold on;
-plot(time*Ts,Ur(2,:),'black --','linewidth',2);
+plot(time*Ts,UK(2,:)); hold on;
+plot(time*Ts,Ur(2,:),'black --');
 ylabel('$\omega\ (rad/s)$','interpreter','latex')
 xlabel('Time(s)','interpreter','latex')
-grid on
+
 figure
 subplot(3,1,1)
-plot(time*Ts,EK(1,:),'red','linewidth',2);
+plot(time*Ts,EK(1,:));
 ylabel('$(x_r - x) (m)$','interpreter','latex')
-legend('EPSAC-B')
 grid on;
 subplot(3,1,2)
-plot(time*Ts,EK(2,:),'red','linewidth',2); 
+plot(time*Ts,EK(2,:)); 
 grid on;
 ylabel('$(y_r - y) (m)$','interpreter','latex')
 subplot(3,1,3)
-plot(time*Ts,EK(3,:),'red','linewidth',2); 
+plot(time*Ts,EK(3,:)); 
 grid on;
 ylabel('$(\theta_r - \theta) (m)$','interpreter','latex')
 xlabel('Time(s)','interpreter','latex')
